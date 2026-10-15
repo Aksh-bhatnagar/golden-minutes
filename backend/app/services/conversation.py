@@ -1,7 +1,13 @@
 
 import re
+from typing import Any
 
 from app.models.report import FraudReport
+from app.services.llm import (
+    contains_sensitive_disclosure,
+    generate_turn,
+    redact_sensitive_secrets,
+)
 
 
 QUESTIONS = [
@@ -47,8 +53,11 @@ QUESTIONS = [
         ),
     },
     {
-    "field": "contacted_bank",
-    "question": "Have you contacted your bank or payment app about this incident? Please say yes, no, or unsure."
+        "field": "contacted_bank",
+        "question": (
+            "Have you contacted your bank or payment app about this "
+            "incident? Please say yes, no, or unsure."
+        ),
     },
 ]
 
@@ -56,6 +65,8 @@ FIELD_LABELS = {
     item["field"]: item["field"].replace("_", " ").title()
     for item in QUESTIONS
 }
+
+REPORT_FIELDS = {item["field"] for item in QUESTIONS}
 
 
 def is_missing_value(field: str, value: object) -> bool:
@@ -65,8 +76,8 @@ def is_missing_value(field: str, value: object) -> bool:
     if isinstance(value, str) and not value.strip():
         return True
 
-    if field == "otp_or_pin_shared" and value == "unknown":
-        return True
+    if field in {"otp_or_pin_shared", "contacted_bank"}:
+        return value == "unknown"
 
     return False
 
@@ -83,181 +94,147 @@ def get_missing_fields(report: FraudReport) -> list[str]:
 
 def get_next_question(report: FraudReport) -> dict | None:
     missing = set(get_missing_fields(report))
-
     return next(
         (item for item in QUESTIONS if item["field"] in missing),
         None,
     )
 
 
-def _extract_answer(
-    field: str,
-    transcript: str,
-) -> tuple[object | None, bool]:
-    """
-    Returns (value, confidently_parsed).
-    Does not use an LLM and intentionally leaves ambiguous values unchanged.
-    """
-    text = transcript.strip()
-    lower = text.lower()
-
-    if not text:
-        return None, False
-
-    # Never store a transcript that appears to disclose a secret as a
-    # transaction reference or phone suffix.
-    if re.search(
-        r"\b(otp|one.time.password|pin|password|cvv|cvc)\b",
-        lower,
-    ):
-        if field in {"transaction_reference", "registered_phone_last4"}:
-            return None, False
-
-    if field == "otp_or_pin_shared":
-        if re.search(r"\b(unsure|not sure|don't know|unknown)\b", lower):
-            return "unknown", True
-
-        if re.search(r"\b(yes|haan|han|ji haan)\b", lower):
-            return "yes", True
-
-        if re.search(r"\b(no|nahi|nahin|never)\b", lower):
-            return "no", True
-
-        return None, False
+def _is_valid_value(field: str, value: Any) -> bool:
+    if value is None:
+        return False
 
     if field == "amount_inr":
-        match = re.search(
-            r"(?:₹|rs\.?|inr|rupees?)\s*([\d,]+(?:\.\d{1,2})?)"
-            r"|([\d,]+(?:\.\d{1,2})?)\s*(?:rupees?|rs\.?|inr)\b",
-            lower,
+        return (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and value >= 0
         )
-
-        # Also accept a plain number when the caller is answering
-        # the specific amount question.
-        if not match and re.fullmatch(r"\s*[\d,]+(?:\.\d{1,2})?\s*", text):
-            raw = text
-        elif match:
-            raw = match.group(1) or match.group(2)
-        else:
-            return None, False
-
-        try:
-            amount = float(raw.replace(",", ""))
-            return (amount, True) if amount >= 0 else (None, False)
-        except ValueError:
-            return None, False
-
-    if field == "incident_date":
-        match = re.search(
-            r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}"
-            r"|\d{4}-\d{2}-\d{2})\b",
-            text,
-        )
-        return (match.group(1), True) if match else (None, False)
-
-    if field == "incident_time":
-        match = re.search(
-            r"\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b"
-            r"|\b(\d{1,2}:\d{2})\b",
-            lower,
-        )
-        if match:
-            return (match.group(1) or match.group(2)).strip(), True
-        return None, False
 
     if field == "registered_phone_last4":
-        match = re.search(
-            r"(?:last\s*(?:four|4)\s*digits?\s*(?:are|is)?\s*)"
-            r"(\d{4})\b",
-            lower,
+        return (
+            isinstance(value, str)
+            and re.fullmatch(r"\d{4}", value) is not None
         )
-        return (match.group(1), True) if match else (None, False)
 
-    if field == "transaction_reference":
-        match = re.search(
-            r"(?:transaction\s*(?:id|reference|number)|"
-            r"reference\s*number|utr|rrn)\s*(?:is|:|-)?\s*"
-            r"([A-Za-z0-9-]{6,40})",
-            text,
-            re.IGNORECASE,
-        )
-        return (match.group(1), True) if match else (None, False)
+    if field in {"otp_or_pin_shared", "contacted_bank"}:
+        return value in {"yes", "no", "unknown"}
 
-    if field == "bank_or_payment_app":
-        known_names = [
-            "google pay", "phonepe", "paytm", "bhim",
-            "amazon pay", "sbi", "hdfc", "icici",
-            "axis bank", "bank of baroda", "pnb",
-        ]
-        for name in known_names:
-            if name in lower:
-                return name.title(), True
+    if field in REPORT_FIELDS:
+        return isinstance(value, str) and bool(value.strip())
 
-        # A short answer to the bank question can be retained as a
-        # candidate, but the caller should confirm it in the UI.
-        if len(text) <= 60 and not re.search(r"\d{6,}", text):
-            return text, False
-
-        return None, False
-
-    if field == "fraud_type":
-        categories = {
-            "upi fraud": ["upi", "qr code", "collect request"],
-            "phishing": ["phishing", "fake link", "malicious link"],
-            "impersonation": ["impersonat", "pretended to be", "fake officer"],
-            "investment scam": ["investment scam", "trading scam"],
-            "job scam": ["job scam", "fake job", "job offer"],
-            "remote access scam": ["remote access", "screen sharing app"],
-            "unauthorized transaction": [
-                "without my permission", "unauthorized", "unknown transaction"
-            ],
-        }
-
-        matches = [
-            category
-            for category, keywords in categories.items()
-            if any(keyword in lower for keyword in keywords)
-        ]
-
-        if len(matches) == 1:
-            return matches[0], True
-
-        # Preserve the caller's description for human review, but do
-        # not claim that an automatic category was confidently identified.
-        return text[:500], False
-
-    return None, False
+    return False
 
 
-def update_report_from_answer(
+def update_report_from_extraction(
+    report: FraudReport,
+    extracted: dict[str, Any],
+) -> tuple[FraudReport, list[str]]:
+    """Merge validated non-null extracted values without clearing known data."""
+    data = report.model_dump()
+    needs_review: list[str] = []
+
+    for field in REPORT_FIELDS:
+        value = extracted.get(field)
+
+        # Null means the model did not extract this field from the message.
+        if value is None:
+            continue
+
+        if not _is_valid_value(field, value):
+            needs_review.append(field)
+            continue
+
+        # Preserve prior information if extraction gives no new value.
+        data[field] = value
+
+    if extracted:
+        data["confirmed_by_user"] = False
+        data["consent_to_save"] = False
+
+    return FraudReport.model_validate(data), needs_review
+
+
+async def process_conversation_answer(
     report: FraudReport,
     transcript: str,
     current_field: str | None = None,
-) -> tuple[FraudReport, list[str]]:
+    language: str = "en",
+    knowledge: str = "",
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     """
-    Updates only the field currently being asked.
-    Returns the updated report and fields that need human confirmation.
+    Redact the transcript, extract multiple fields with Groq, and merge
+    them into the report. Never persist the original transcript here.
     """
-    allowed_fields = {item["field"] for item in QUESTIONS}
+    safe_transcript = redact_sensitive_secrets(transcript.strip())
 
-    if current_field not in allowed_fields:
-        return report, []
+    if not safe_transcript:
+        raise ValueError("Transcript cannot be empty.")
 
-    value, confident = _extract_answer(current_field, transcript)
+    sensitive_disclosure = contains_sensitive_disclosure(transcript)
 
-    if value is None:
-        return report, [current_field]
+    result = await generate_turn(
+        transcript=safe_transcript,
+        language=language,
+        current_field=current_field,
+        report=report.model_dump(),
+        knowledge=knowledge,
+        conversation_history=conversation_history,
+    )
 
-    data = report.model_dump()
-    data[current_field] = value
+    updated_report, invalid_fields = update_report_from_extraction(
+        report,
+        result["extracted"],
+    )
 
-    # Any newly captured answer requires caller confirmation later.
-    data["confirmed_by_user"] = False
+    next_item = get_next_question(updated_report)
 
-    updated_report = FraudReport.model_validate(data)
-    needs_review = [] if confident else [current_field]
+    needs_review = (
+        result["needs_review"]
+        or sensitive_disclosure
+        or bool(invalid_fields)
+    )
 
-    return updated_report, needs_review
+    # Never speak the original secret back to the caller.
+    spoken_response = redact_sensitive_secrets(result["response"])
+
+    if sensitive_disclosure:
+        spoken_response = (
+            "Please do not share secret codes or PINs. "
+            "I will not include the secret in the report. "
+            "Please contact your bank through its official channel promptly."
+        )
+        action = "clarify"
+    elif needs_review:
+        spoken_response = (
+            "I may not have captured every detail correctly. "
+            "Please review the information before continuing."
+        )
+        action = "clarify"
+    elif next_item:
+        # The next question is determined by the report, not by an
+        # unconstrained LLM-generated follow-up.
+        spoken_response = next_item["question"]
+        action = "ask"
+    else:
+        spoken_response = (
+            "I've collected the requested details. "
+            "Please review them before confirming the report."
+        )
+        action = "confirm"
+
+    return {
+        "report": updated_report,
+        "response": spoken_response,
+        "action": action,
+        "current_field": next_item["field"] if next_item else None,
+        "needs_review": needs_review,
+        "review_fields": sorted(set(invalid_fields)),
+        "summary": build_report_summary(updated_report),
+        "transcript": safe_transcript,
+        "model": result.get("model"),
+    }
 
 
 def build_report_summary(report: FraudReport) -> dict:
@@ -269,4 +246,5 @@ def build_report_summary(report: FraudReport) -> dict:
         "missing_labels": [FIELD_LABELS[field] for field in missing],
         "ready_for_confirmation": len(missing) == 0,
         "confirmed_by_user": report.confirmed_by_user,
+        "consent_to_save": report.consent_to_save,
     }

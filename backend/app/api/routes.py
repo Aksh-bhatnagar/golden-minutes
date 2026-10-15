@@ -20,8 +20,9 @@ from app.models.report import FraudReport
 from app.services.conversation import (
     build_report_summary,
     get_next_question,
-    update_report_from_answer,
+    process_conversation_answer,
 )
+from app.services.llm import redact_sensitive_secrets
 
 router = APIRouter(prefix="/api", tags=["Golden 15"])
 
@@ -126,7 +127,7 @@ async def speech_to_text(
         )
 
         return {
-            "transcript": transcript,
+            "transcript": redact_sensitive_secrets(transcript),
             "language": language,
         }
 
@@ -201,7 +202,7 @@ async def speech_to_text_stream(
                 )
 
                 if isinstance(event, StreamTranscriptEvent):
-                    transcript = event.text.strip()
+                    transcript = redact_sensitive_secrets(event.text.strip())
 
                     if transcript:
                         await websocket.send_json({
@@ -331,40 +332,36 @@ async def text_to_speech(payload: TTSRequest):
         ) from exc
 
 
+
 @router.post("/conversation/turn")
-def conversation_turn(payload: ConversationTurnRequest):
-    report, needs_review = update_report_from_answer(
-        report=payload.report,
-        transcript=payload.transcript,
-        current_field=payload.current_field,
-    )
-
-    next_item = get_next_question(report)
-    summary = build_report_summary(report)
-
-    if needs_review:
-        response = (
-            "I may not have captured that correctly. "
-            "Could you clarify your answer?"
+async def conversation_turn(payload: ConversationTurnRequest):
+    try:
+        result = await process_conversation_answer(
+            report=payload.report,
+            transcript=payload.transcript,
+            current_field=payload.current_field,
         )
-        action = "clarify"
 
-    elif next_item:
-        response = next_item["question"]
-        action = "ask"
+        return {
+            "report": result["report"].model_dump(),
+            "response": result["response"],
+            "action": result["action"],
+            "current_field": result["current_field"],
+            "needs_review": result["needs_review"],
+            "review_fields": result["review_fields"],
+            "summary": result["summary"],
+            "model": result["model"],
+        }
 
-    else:
-        response = (
-            "I've collected the requested details. "
-            "Please review them before confirming the report."
-        )
-        action = "confirm"
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
 
-    return {
-        "report": report.model_dump(),
-        "response": response,
-        "action": action,
-        "current_field": next_item["field"] if next_item else None,
-        "needs_review": needs_review,
-        "summary": summary,
-    }
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="The conversation service is temporarily unavailable.",
+        ) from exc
+
