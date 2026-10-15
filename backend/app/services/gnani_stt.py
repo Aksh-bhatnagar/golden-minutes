@@ -3,7 +3,7 @@ import asyncio
 from functools import partial
 
 from fastapi.concurrency import run_in_threadpool
-from gnani.stt import GnaniSTTClient
+from gnani.stt import APIError, GnaniSTTClient
 
 
 LANGUAGE_CODES = {
@@ -41,14 +41,22 @@ async def transcribe_audio(
     if not language_code:
         raise ValueError("Unsupported language selection.")
 
-    result = await run_in_threadpool(
-        partial(
-            _transcribe,
-            audio_bytes,
-            filename,
-            language_code,
+    
+    try:
+        result = await run_in_threadpool(
+            partial(
+                _transcribe,
+                audio_bytes,
+                filename,
+                language_code,
+            )
         )
-    )
+    except APIError as exc:
+        print(f"[STT] Gnani HTTP status: {exc.status_code}")
+        print(f"[STT] Gnani error code: {exc.error_code}")
+        print(f"[STT] Gnani response: {exc.body[:1000]}")
+        raise
+
 
     transcript = result.get("transcript", "")
     if not isinstance(transcript, str) or not transcript.strip():
