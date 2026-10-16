@@ -69,17 +69,22 @@ FIELD_LABELS = {
 REPORT_FIELDS = {item["field"] for item in QUESTIONS}
 
 
+
 def is_missing_value(field: str, value: object) -> bool:
+    """Return whether a required report field is genuinely unanswered."""
     if value is None:
         return True
 
     if isinstance(value, str) and not value.strip():
         return True
 
+    # "unknown" is an explicit, valid answer for these fields.
+    # Never force a user to guess or disclose sensitive information.
     if field in {"otp_or_pin_shared", "contacted_bank"}:
-        return value == "unknown"
+        return value not in {"yes", "no", "unknown"}
 
     return False
+
 
 
 def get_missing_fields(report: FraudReport) -> list[str]:

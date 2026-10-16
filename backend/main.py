@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import APP_NAME, APP_VERSION
 from app.api.routes import router
+from app.api.report_routes import router as report_router
 
 app = FastAPI(
     title=APP_NAME,
@@ -26,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(report_router)
 
 
 @app.get("/")
