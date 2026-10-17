@@ -1,0 +1,27 @@
+{
+  "workflow_id": "g15draft_8CWvLfZkQAVJURg8XaZm-JMC",
+  "access_token_hash": "78cac74caaf61053a4037a47b84fade736b9d0c31c182f989b7530445f1206be",
+  "status": "reviewing",
+  "report": {
+    "fraud_type": null,
+    "bank_or_payment_app": "UPI",
+    "amount_inr": 5000.0,
+    "transaction_reference": "[REDACTED]",
+    "incident_date": "16th October 2026",
+    "incident_time": "around 3 pm",
+    "registered_phone_last4": "1234",
+    "otp_or_pin_shared": "unknown",
+    "contacted_bank": "unknown",
+    "missing_fields": [],
+    "confirmed_by_user": false,
+    "consent_to_save": false
+  },
+  "user_confirmed": false,
+  "consent_granted": false,
+  "reference": null,
+  "review_completed": true,
+  "created_at": "2026-10-17T14:52:08.275732+00:00",
+  "updated_at": "2026-10-17T14:52:08.304192+00:00",
+  "review_mode": "all",
+  "review_field": null
+}
