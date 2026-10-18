@@ -1,36 +1,18 @@
-
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 export default function AppHeader() {
   return (
-    <header className="mx-auto flex min-h-[76px] w-full max-w-6xl items-center justify-between gap-4 border-b border-white/[0.08] px-5 sm:px-8">
-      <a
-        href="/"
-        className="flex items-center gap-3"
-        aria-label="Golden Minutes home"
-      >
-        <span className="grid size-10 place-items-center rounded-xl border border-teal-300/20 bg-teal-300/[0.08] text-teal-200">
-          <ShieldCheck size={21} strokeWidth={1.8} />
-        </span>
-
-        <span className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold tracking-tight text-white sm:text-base">
-            Golden Minutes
-          </span>
-          <span className="text-[10px] font-semibold tracking-[0.24em] text-white/45">
-            BY GNANI
-          </span>
+    <header className="mx-auto flex h-20 max-w-5xl items-center justify-between px-6">
+      <a href="/" className="flex items-center gap-2.5">
+        <span className="size-7 rounded-full" style={{ background: "linear-gradient(135deg,#f58a63,#7c5cf0)" }} />
+        <span className="text-base font-semibold tracking-tight">Golden Minutes</span>
+        <span className="rounded-full border border-line bg-white/80 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-mute">
+          BY GNANI
         </span>
       </a>
-
-      <a
-        href="https://cybercrime.gov.in/"
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1.5 text-right text-xs text-white/60 transition-colors hover:text-teal-200 sm:text-sm"
-      >
-        Official reporting portal
-        <ArrowUpRight size={15} />
+      <a href="https://cybercrime.gov.in/" target="_blank" rel="noreferrer"
+         className="inline-flex items-center gap-1 text-sm text-mute transition hover:text-ink">
+        Official portal <ArrowUpRight size={15} />
       </a>
     </header>
   );

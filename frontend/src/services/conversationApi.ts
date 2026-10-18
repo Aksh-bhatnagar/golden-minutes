@@ -15,10 +15,17 @@ interface CreateDraftResponse {
   report: FraudReport;
 }
 
+export interface HistoryItem {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export function submitConversationTurn(
   report: FraudReport,
   transcript: string,
   currentField: string | null,
+  language: SupportedLanguage,
+  history: HistoryItem[],
 ): Promise<ConversationTurnResponse> {
   return apiRequest<ConversationTurnResponse>("/conversation/turn", {
     method: "POST",
@@ -26,6 +33,8 @@ export function submitConversationTurn(
       report,
       transcript,
       current_field: currentField,
+      language,
+      conversation_history: history,
     }),
   });
 }

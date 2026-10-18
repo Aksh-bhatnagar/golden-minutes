@@ -15,14 +15,15 @@ LANGUAGE_CODES = {
 }
 
 
+_client = GnaniSTTClient()
+
+
 def _transcribe(
     audio_bytes: bytes,
     filename: str,
     language_code: str,
 ) -> dict:
-    client = GnaniSTTClient()
-
-    return client.transcribe_bytes(
+    return _client.transcribe_bytes(
         audio_bytes,
         filename=filename,
         language_code=language_code,

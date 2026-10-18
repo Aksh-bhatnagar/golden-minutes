@@ -9,55 +9,27 @@ from app.services.llm import (
     redact_sensitive_secrets,
 )
 
-
 QUESTIONS = [
-    {
-        "field": "fraud_type",
-        "question": "Please briefly tell me what happened.",
-    },
-    {
-        "field": "bank_or_payment_app",
-        "question": "Which bank or payment app was involved?",
-    },
-    {
-        "field": "amount_inr",
-        "question": "Approximately how much money was lost in rupees?",
-    },
+    {"field": "fraud_type", "question": "Could you tell me what happened? Take your time."},
+    {"field": "bank_or_payment_app", "question": "Which bank or payment app was involved?"},
+    {"field": "amount_inr", "question": "Approximately how much money was lost?"},
     {
         "field": "transaction_reference",
-        "question": (
-            "Do you have the transaction reference number? "
-            "Never share an OTP, PIN, or password."
-        ),
+        "question": "Do you have the transaction reference? Please don't share an OTP or PIN.",
     },
-    {
-        "field": "incident_date",
-        "question": "On what date did the transaction happen?",
-    },
-    {
-        "field": "incident_time",
-        "question": "Approximately what time did it happen?",
-    },
+    {"field": "incident_date", "question": "On what date did this happen?"},
+    {"field": "incident_time", "question": "Around what time did it happen?"},
     {
         "field": "registered_phone_last4",
-        "question": (
-            "If you are comfortable, what are the last four digits "
-            "of the registered phone number?"
-        ),
+        "question": "What are the last four digits of the registered phone number?",
     },
     {
         "field": "otp_or_pin_shared",
-        "question": (
-            "Was an OTP or PIN shared? Say yes, no, or unsure. "
-            "Do not tell me the actual code."
-        ),
+        "question": "Did you share an OTP or PIN with the caller? Please don't tell me the code itself.",
     },
     {
         "field": "contacted_bank",
-        "question": (
-            "Have you contacted your bank or payment app about this "
-            "incident? Please say yes, no, or unsure."
-        ),
+        "question": "Have you contacted your bank or payment app about this?",
     },
 ]
 
@@ -65,31 +37,24 @@ FIELD_LABELS = {
     item["field"]: item["field"].replace("_", " ").title()
     for item in QUESTIONS
 }
-
 REPORT_FIELDS = {item["field"] for item in QUESTIONS}
 
 
-
 def is_missing_value(field: str, value: object) -> bool:
-    """Return whether a required report field is genuinely unanswered."""
     if value is None:
         return True
 
     if isinstance(value, str) and not value.strip():
         return True
 
-    # "unknown" is an explicit, valid answer for these fields.
-    # Never force a user to guess or disclose sensitive information.
     if field in {"otp_or_pin_shared", "contacted_bank"}:
         return value not in {"yes", "no", "unknown"}
 
     return False
 
 
-
 def get_missing_fields(report: FraudReport) -> list[str]:
     data = report.model_dump()
-
     return [
         item["field"]
         for item in QUESTIONS
@@ -135,14 +100,13 @@ def update_report_from_extraction(
     report: FraudReport,
     extracted: dict[str, Any],
 ) -> tuple[FraudReport, list[str]]:
-    """Merge validated non-null extracted values without clearing known data."""
     data = report.model_dump()
     needs_review: list[str] = []
 
     for field in REPORT_FIELDS:
         value = extracted.get(field)
 
-        # Null means the model did not extract this field from the message.
+        # Never overwrite a value already collected with a missing value.
         if value is None:
             continue
 
@@ -150,7 +114,6 @@ def update_report_from_extraction(
             needs_review.append(field)
             continue
 
-        # Preserve prior information if extraction gives no new value.
         data[field] = value
 
     if extracted:
@@ -168,10 +131,6 @@ async def process_conversation_answer(
     knowledge: str = "",
     conversation_history: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """
-    Redact the transcript, extract multiple fields with Groq, and merge
-    them into the report. Never persist the original transcript here.
-    """
     safe_transcript = redact_sensitive_secrets(transcript.strip())
 
     if not safe_transcript:
@@ -193,6 +152,7 @@ async def process_conversation_answer(
         result["extracted"],
     )
 
+    missing_fields = get_missing_fields(updated_report)
     next_item = get_next_question(updated_report)
 
     needs_review = (
@@ -201,32 +161,35 @@ async def process_conversation_answer(
         or bool(invalid_fields)
     )
 
-    # Never speak the original secret back to the caller.
-    spoken_response = redact_sensitive_secrets(result["response"])
+    # The model's response is now the default. Do not replace it with
+    # a fixed questionnaire prompt after every user answer.
+    spoken_response = redact_sensitive_secrets(
+        result["response"].strip()
+    )
 
     if sensitive_disclosure:
         spoken_response = (
-            "Please do not share secret codes or PINs. "
-            "I will not include the secret in the report. "
-            "Please contact your bank through its official channel promptly."
+            "Please don't share secret codes or PINs with me. "
+            "I won't include the secret in your report. "
+            "Have you already contacted your bank through an official channel?"
         )
         action = "clarify"
-    elif needs_review:
+
+    elif invalid_fields:
         spoken_response = (
-            "I may not have captured every detail correctly. "
-            "Please review the information before continuing."
+            "I may not have captured one of those details correctly. "
+            "Let's check it before we continue."
         )
         action = "clarify"
-    elif next_item:
-        # The next question is determined by the report, not by an
-        # unconstrained LLM-generated follow-up.
-        spoken_response = next_item["question"]
+
+    elif missing_fields:
+        # Keep the model's empathetic acknowledgement and contextual
+        # follow-up question instead of repeating a hardcoded question.
         action = "ask"
+
     else:
-        spoken_response = (
-            "I've collected the requested details. "
-            "Please review them before confirming the report."
-        )
+        # The model can still give a natural final transition. The UI
+        # should show the collected report for user review and confirmation.
         action = "confirm"
 
     return {

@@ -1,88 +1,31 @@
 
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  FileText,
-  LoaderCircle,
-  Save,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, LoaderCircle, Save } from "lucide-react";
 import type { FraudReport, YesNoUnknown } from "@/types/report";
 
-interface ReportReviewProps {
+interface Props {
   report: FraudReport;
   busy?: boolean;
   error?: string | null;
   onBack: () => void;
-  onSaveChanges: (report: FraudReport) => Promise<void> | void;
-  onConfirm: (report: FraudReport) => Promise<void> | void;
+  onSaveChanges: (r: FraudReport) => Promise<void> | void;
+  onConfirm: (r: FraudReport) => Promise<void> | void;
 }
 
-interface ReportFieldProps {
-  label: string;
-  value: string | number | null;
-  placeholder?: string;
-  type?: "text" | "number" | "date" | "time" | "tel";
-  onChange: (value: string) => void;
-}
+const FIELDS: [keyof FraudReport, string, string?][] = [
+  ["fraud_type", "What happened"],
+  ["bank_or_payment_app", "Bank or payment app"],
+  ["amount_inr", "Amount lost (₹)", "number"],
+  ["transaction_reference", "Transaction ID"],
+  ["incident_date", "Date"],
+  ["incident_time", "Time"],
+  ["registered_phone_last4", "Registered phone, last 4 digits", "tel"],
+];
 
-function ReportField({
-  label,
-  value,
-  placeholder,
-  type = "text",
-  onChange,
-}: ReportFieldProps) {
-  return (
-    <label className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-slate-300">
-        {label}
-      </span>
-      <input
-        type={type}
-        value={value ?? ""}
-        placeholder={placeholder ?? "Not provided"}
-        min={type === "number" ? 0 : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-2 focus:ring-teal-400/10"
-      />
-    </label>
-  );
-}
-
-interface ChoiceFieldProps {
-  label: string;
-  value: YesNoUnknown;
-  onChange: (value: YesNoUnknown) => void;
-}
-
-function ChoiceField({ label, value, onChange }: ChoiceFieldProps) {
-  return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="text-sm font-medium text-slate-300">
-        {label}
-      </legend>
-      <div className="grid grid-cols-3 gap-2">
-        {(["yes", "no", "unknown"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={value === option}
-            onClick={() => onChange(option)}
-            className={`rounded-xl border px-3 py-2.5 text-sm capitalize transition ${
-              value === option
-                ? "border-teal-400/60 bg-teal-400/10 text-teal-200"
-                : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.07] hover:text-white"
-            }`}
-          >
-            {option === "unknown" ? "Not sure" : option}
-          </button>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
+const CHOICES: [keyof FraudReport, string][] = [
+  ["otp_or_pin_shared", "Did you share an OTP or PIN?"],
+  ["contacted_bank", "Have you contacted your bank or payment app?"],
+];
 
 export default function ReportReview({
   report,
@@ -91,270 +34,167 @@ export default function ReportReview({
   onBack,
   onSaveChanges,
   onConfirm,
-}: ReportReviewProps) {
-  const [draft, setDraft] = useState<FraudReport>(report);
-  const [localError, setLocalError] = useState<string | null>(null);
+}: Props) {
+  const [d, setD] = useState(report);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    setDraft(report);
+    setD(report);
   }, [report]);
 
-  function updateField<K extends keyof FraudReport>(
-    field: K,
-    value: FraudReport[K],
+  const set = (k: keyof FraudReport, v: unknown) => {
+    setD((p) => ({ ...p, [k]: v }));
+    setErr(null);
+  };
+
+  const missing = FIELDS.filter(
+    ([k]) => d[k] === null || d[k] === "",
+  ).map((f) => f[1]);
+
+  async function run(
+    fn: (r: FraudReport) => Promise<void> | void,
   ) {
-    setDraft((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
-    setLocalError(null);
-  }
-
-  function validate(): string | null {
     if (
-      draft.amount_inr !== null &&
-      (!Number.isFinite(draft.amount_inr) || draft.amount_inr < 0)
+      d.amount_inr !== null &&
+      (!Number.isFinite(d.amount_inr) || d.amount_inr < 0)
     ) {
-      return "Enter a valid, non-negative amount.";
-    }
-
-    if (
-      draft.registered_phone_last4 &&
-      !/^\d{4}$/.test(draft.registered_phone_last4)
-    ) {
-      return "Enter exactly the last four digits of the registered phone number.";
-    }
-
-    return null;
-  }
-
-  async function handleSaveChanges() {
-    const validationError = validate();
-
-    if (validationError) {
-      setLocalError(validationError);
+      setErr("Enter a valid amount.");
       return;
     }
 
-    try {
-      setLocalError(null);
-      await onSaveChanges(draft);
-    } catch (cause) {
-      setLocalError(
-        cause instanceof Error
-          ? cause.message
-          : "Unable to save your corrections.",
-      );
-    }
-  }
-
-  async function handleConfirm() {
-    const validationError = validate();
-
-    if (validationError) {
-      setLocalError(validationError);
+    if (
+      d.registered_phone_last4 &&
+      !/^\d{4}$/.test(d.registered_phone_last4)
+    ) {
+      setErr("Phone needs exactly 4 digits.");
       return;
     }
 
+    setErr(null);
+
     try {
-      setLocalError(null);
-      await onConfirm(draft);
-    } catch (cause) {
-      setLocalError(
-        cause instanceof Error
-          ? cause.message
-          : "Unable to confirm the report.",
+      await fn(d);
+    } catch (e) {
+      setErr(
+        e instanceof Error
+          ? e.message
+          : "Something went wrong.",
       );
     }
   }
-
-  const missingCount = draft.missing_fields.length;
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-12 pt-6 sm:px-6">
+    <main className="mx-auto w-full max-w-2xl px-5 pb-12 pt-2">
       <button
         type="button"
         onClick={onBack}
         disabled={busy}
-        className="mb-6 inline-flex items-center gap-2 rounded-lg py-2 text-sm text-slate-400 transition hover:text-white disabled:opacity-50"
+        className="btn-light !min-h-10 mb-6 !px-4"
       >
-        <ArrowLeft size={17} />
+        <ArrowLeft size={16} />
         Back to conversation
       </button>
 
-      <div className="mb-6 flex items-start gap-4">
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-teal-300/20 bg-teal-300/10 text-teal-200">
-          <FileText size={23} />
-        </div>
+      <h1 className="text-3xl font-medium tracking-tight">
+        Review your <span className="grad-text">report</span>
+      </h1>
 
-        <div className="min-w-0 flex-1">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
-            Golden Minutes
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-            Review your report
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            Check the information collected during your conversation.
-            Correct anything that is inaccurate before confirming.
-          </p>
-        </div>
-      </div>
+      <p className="mt-2 text-sm text-mute">
+        Correct anything that is wrong, then confirm.
+      </p>
 
-      {missingCount > 0 && (
-        <div className="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-4">
-          <p className="text-sm font-medium text-amber-200">
-            Some details may still be missing
-          </p>
-          <p className="mt-1 text-sm leading-5 text-amber-100/70">
-            {draft.missing_fields.join(", ")}
-          </p>
-        </div>
+      {missing.length > 0 && (
+        <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Still empty: {missing.join(", ")}
+        </p>
       )}
 
       <form
-        className="space-y-6"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void handleConfirm();
+        className="card mt-6 space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(onConfirm);
         }}
       >
-        <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
-          <h2 className="mb-5 text-base font-semibold text-white">
-            Incident details
-          </h2>
+        {FIELDS.map(([k, label, type]) => (
+          <label key={k} className="block">
+            <span className="mb-1.5 block text-sm font-medium">
+              {label}
+            </span>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <ReportField
-                label="Type of fraud"
-                value={draft.fraud_type}
-                placeholder="Describe the type of fraud"
-                onChange={(value) =>
-                  updateField("fraud_type", value || null)
+            <input
+              className="input"
+              type={type ?? "text"}
+              min={type === "number" ? 0 : undefined}
+              placeholder="Not provided"
+              value={String(d[k] ?? "")}
+              onChange={(e) => {
+                const v = e.target.value;
+
+                if (k === "amount_inr") {
+                  set(k, v === "" ? null : Number(v));
+                } else if (k === "registered_phone_last4") {
+                  set(
+                    k,
+                    v.replace(/\D/g, "").slice(0, 4) || null,
+                  );
+                } else {
+                  set(k, v || null);
                 }
-              />
+              }}
+            />
+          </label>
+        ))}
+
+        {CHOICES.map(([k, label]) => (
+          <fieldset key={k}>
+            <legend className="mb-1.5 text-sm font-medium">
+              {label}
+            </legend>
+
+            <div className="grid grid-cols-3 gap-2">
+              {(["yes", "no", "unknown"] as YesNoUnknown[]).map(
+                (o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    aria-pressed={d[k] === o}
+                    onClick={() => set(k, o)}
+                    className={`rounded-xl border px-3 py-2.5 text-sm capitalize transition ${
+                      d[k] === o
+                        ? "border-violet bg-violet/10 text-violet"
+                        : "border-line bg-white text-mute hover:bg-paper"
+                    }`}
+                  >
+                    {o === "unknown" ? "Not sure" : o}
+                  </button>
+                ),
+              )}
             </div>
+          </fieldset>
+        ))}
 
-            <ReportField
-              label="Bank or payment app"
-              value={draft.bank_or_payment_app}
-              placeholder="Bank, UPI app, or payment service"
-              onChange={(value) =>
-                updateField("bank_or_payment_app", value || null)
-              }
-            />
-
-            <ReportField
-              label="Amount lost (₹)"
-              value={draft.amount_inr}
-              type="number"
-              placeholder="Amount in rupees"
-              onChange={(value) =>
-                updateField(
-                  "amount_inr",
-                  value === "" ? null : Number(value),
-                )
-              }
-            />
-
-            <ReportField
-              label="Transaction reference"
-              value={draft.transaction_reference}
-              placeholder="Transaction ID or reference"
-              onChange={(value) =>
-                updateField("transaction_reference", value || null)
-              }
-            />
-
-            <ReportField
-              label="Incident date"
-              value={draft.incident_date}
-              type="date"
-              onChange={(value) =>
-                updateField("incident_date", value || null)
-              }
-            />
-
-            <ReportField
-              label="Incident time"
-              value={draft.incident_time}
-              type="time"
-              onChange={(value) =>
-                updateField("incident_time", value || null)
-              }
-            />
-
-            <ReportField
-              label="Registered phone — last four digits only"
-              value={draft.registered_phone_last4}
-              type="tel"
-              placeholder="1234"
-              onChange={(value) =>
-                updateField(
-                  "registered_phone_last4",
-                  value.replace(/\D/g, "").slice(0, 4) || null,
-                )
-              }
-            />
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
-          <h2 className="mb-5 text-base font-semibold text-white">
-            Follow-up information
-          </h2>
-
-          <div className="space-y-6">
-            <ChoiceField
-              label="Did you share an OTP or PIN?"
-              value={draft.otp_or_pin_shared}
-              onChange={(value) =>
-                updateField("otp_or_pin_shared", value)
-              }
-            />
-
-            <ChoiceField
-              label="Have you contacted your bank or payment provider?"
-              value={draft.contacted_bank}
-              onChange={(value) =>
-                updateField("contacted_bank", value)
-              }
-            />
-          </div>
-        </section>
-
-        <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.025] p-4">
-          <ShieldCheck
-            size={20}
-            className="mt-0.5 shrink-0 text-teal-300"
-          />
-          <p className="text-xs leading-5 text-slate-400">
-            Never enter an OTP, PIN, password, or full payment
-            credential here. This is an intake summary, not an
-            officially filed police complaint, and recovery is not
-            guaranteed.
-          </p>
-        </div>
-
-        {(localError || error) && (
-          <div
+        {(err || error) && (
+          <p
             role="alert"
-            className="rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-200"
+            className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
           >
-            {localError || error}
-          </div>
+            {err || error}
+          </p>
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => void handleSaveChanges()}
             disabled={busy}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => void run(onSaveChanges)}
+            className="btn-light"
           >
             {busy ? (
-              <LoaderCircle size={17} className="animate-spin" />
+              <LoaderCircle
+                size={17}
+                className="animate-spin"
+              />
             ) : (
               <Save size={17} />
             )}
@@ -364,10 +204,13 @@ export default function ReportReview({
           <button
             type="submit"
             disabled={busy}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-teal-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-dark"
           >
             {busy ? (
-              <LoaderCircle size={17} className="animate-spin" />
+              <LoaderCircle
+                size={17}
+                className="animate-spin"
+              />
             ) : (
               <CheckCircle2 size={17} />
             )}

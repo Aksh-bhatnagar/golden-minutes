@@ -22,10 +22,11 @@ class FraudReport(BaseModel):
         pattern=r"^\d{4}$",
     )
 
-    otp_or_pin_shared: Literal["yes", "no", "unknown"] = "unknown"
-    contacted_bank: Literal["yes", "no", "unknown"] = "unknown"
+    otp_or_pin_shared: Literal["yes", "no", "unknown"] | None = None
+    contacted_bank: Literal["yes", "no", "unknown"] | None = None
 
     missing_fields: list[str] = Field(default_factory=list)
+    skipped_fields: list[str] = Field(default_factory=list)
 
     # The user has reviewed and confirmed the report details.
     confirmed_by_user: bool = False

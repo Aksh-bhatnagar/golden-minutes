@@ -1,4 +1,6 @@
-
+from typing import Literal
+from pydantic import BaseModel, Field
+from time import perf_counter
 import asyncio
 
 from fastapi import (
@@ -9,7 +11,6 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from pydantic import BaseModel, Field
 
 from gnani.stt import GnaniSTTStreamClient, StreamErrorEvent, StreamTranscriptEvent
 
@@ -19,7 +20,6 @@ from app.core.safety import get_safety_notice
 from app.models.report import FraudReport
 from app.services.conversation import (
     build_report_summary,
-    get_next_question,
     process_conversation_answer,
 )
 from app.services.llm import redact_sensitive_secrets
@@ -44,10 +44,19 @@ class TTSRequest(BaseModel):
     language: str = "en"
 
 
+class HistoryItem(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=3000)
+
+
 class ConversationTurnRequest(BaseModel):
     report: FraudReport
     transcript: str = Field(min_length=1, max_length=3000)
     current_field: str | None = None
+    language: Literal["en", "hi", "hinglish"] = "en"
+    conversation_history: list[HistoryItem] = Field(
+        default_factory=list, max_length=10
+    )
 
 
 @router.get("/health")
@@ -67,16 +76,25 @@ def safety():
 def report_schema():
     return FraudReport.model_json_schema()
 
-
 @router.post("/conversation/next")
 def next_question(payload: NextQuestionRequest):
     report = payload.report
-    question = get_next_question(report)
+
+    # Start naturally. Let the caller explain before beginning follow-ups.
+    opening = (
+        "Hi, I'm an AI assistant, not the official helpline. "
+        "I'll help you get your details ready. "
+        "Was money taken from your account?"
+    )
 
     return {
-        "question": question,
+        "question": {
+            "field": "fraud_type",
+            "question": opening,
+        },
         "summary": build_report_summary(report),
     }
+
 
 
 @router.post("/stt")
@@ -88,7 +106,11 @@ async def speech_to_text(
     # Initial prototype limit: 10 MB per audio upload.
     content_length = request.headers.get("content-length")
 
-    if content_length and int(content_length) > 10 * 1024 * 1024:
+    if (
+        content_length
+        and content_length.isdigit()
+        and int(content_length) > 10 * 1024 * 1024
+    ):
         raise HTTPException(
             status_code=413,
             detail="Audio file is too large.",
@@ -335,12 +357,20 @@ async def text_to_speech(payload: TTSRequest):
 
 @router.post("/conversation/turn")
 async def conversation_turn(payload: ConversationTurnRequest):
+    started = perf_counter()
+
     try:
         result = await process_conversation_answer(
             report=payload.report,
             transcript=payload.transcript,
             current_field=payload.current_field,
+            language=payload.language,
+            conversation_history=[
+                item.model_dump() for item in payload.conversation_history
+            ],
         )
+
+        print(f"[TURN] total={perf_counter() - started:.2f}s")
 
         return {
             "report": result["report"].model_dump(),
@@ -354,9 +384,12 @@ async def conversation_turn(payload: ConversationTurnRequest):
         }
 
     except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    except RuntimeError as exc:
         raise HTTPException(
-            status_code=400,
-            detail=str(exc),
+            status_code=502,
+            detail="The conversation service is temporarily unavailable.",
         ) from exc
 
     except RuntimeError as exc:

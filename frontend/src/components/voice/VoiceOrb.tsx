@@ -1,77 +1,56 @@
-
+import { useEffect, useRef } from "react";
 import type { VoiceState } from "@/types/conversation";
 
-interface VoiceOrbProps {
-  state: VoiceState;
-}
-
-const stateLabels: Record<VoiceState, string> = {
-  idle: "READY",
-  connecting: "CONNECTING",
-  listening: "LISTENING",
-  thinking: "THINKING",
-  speaking: "SPEAKING",
-  reconnecting: "RECONNECTING",
-  error: "CONNECTION ISSUE",
-  ended: "CONVERSATION ENDED",
+const N = 900;
+const TARGET: Partial<Record<VoiceState, number>> = {
+  speaking: 1, listening: 0.5, thinking: 0.7, connecting: 0.6,
 };
 
-export default function VoiceOrb({ state }: VoiceOrbProps) {
-  const isActive = state === "listening" || state === "speaking";
-  const isThinking = state === "thinking" || state === "connecting";
-  const isError = state === "error";
+export default function VoiceOrb({ state, size = 300 }: { state: VoiceState; size?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  useEffect(() => {
+    const canvas = ref.current!;
+    const ctx = canvas.getContext("2d")!;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.height = size * dpr;
+    ctx.scale(dpr, dpr);
+
+    const pts = Array.from({ length: N }, () => ({
+      a: Math.random() * Math.PI * 2,
+      o: (Math.random() - 0.5) * 2,
+      p: Math.random() * 6.28,
+    }));
+    let amp = 0, raf = 0;
+
+    const draw = (t: number) => {
+      const s = stateRef.current;
+      amp += ((TARGET[s] ?? 0.2) - amp) * 0.05;
+      ctx.clearRect(0, 0, size, size);
+      const R = size * 0.34;
+      const spin = t / (s === "thinking" ? 2500 : 9000);
+
+      for (const q of pts) {
+        const wob = Math.sin(t / 400 + q.p * 3 + q.a * 4) * amp;
+        const r = R + q.o * (6 + 14 * amp) + wob * 8;
+        const a = q.a + spin;
+        const k = (Math.cos(a) + 1) / 2;
+        ctx.fillStyle = s === "error"
+          ? "rgb(200,90,90)"
+          : `rgb(${245 - 121 * k | 0},${138 - 46 * k | 0},${99 + 141 * k | 0})`;
+        ctx.fillRect(size / 2 + Math.cos(a) * r, size / 2 + Math.sin(a) * r, 1.5, 1.5);
+      }
+      raf = requestAnimationFrame(draw);
+    };
+
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [size]);
 
   return (
-    <div
-      className="relative flex aspect-square w-full max-w-[360px] items-center justify-center"
-      role="img"
-      aria-label={`Voice assistant: ${stateLabels[state].toLowerCase()}`}
-    >
-      <div
-        className={`absolute inset-[3%] rounded-full border transition-colors duration-500 ${
-          isError ? "border-red-300/20" : "border-teal-200/10"
-        }`}
-      />
-
-      <div
-        className={`absolute inset-[13%] rounded-full border transition-colors duration-500 ${
-          isActive
-            ? "border-teal-200/30"
-            : "border-teal-200/[0.12]"
-        }`}
-      />
-
-      <div
-        className={`absolute inset-[22%] rounded-full blur-3xl transition-colors duration-500 ${
-          isError ? "bg-red-400/10" : "bg-teal-400/15"
-        } ${isActive ? "scale-110" : "scale-100"}`}
-      />
-
-      <div
-        className={`relative flex size-[55%] items-center justify-center overflow-hidden rounded-full border transition-all duration-500 ${
-          isError
-            ? "border-red-200/30 bg-[radial-gradient(circle_at_30%_25%,#fca5a5,#a33b45_48%,#271012)]"
-            : "border-teal-100/35 bg-[radial-gradient(circle_at_30%_25%,#b8fff0,#5de4c3_18%,#20a98f_43%,#10594f_70%,#071110)]"
-        } ${
-          state === "speaking"
-            ? "scale-105 shadow-[0_0_85px_rgba(45,212,191,0.32)]"
-            : "shadow-[0_0_55px_rgba(45,212,191,0.16)]"
-        } ${
-          isThinking
-            ? "motion-safe:animate-[pulse_1.5s_ease-in-out_infinite]"
-            : isActive
-              ? "motion-safe:animate-[pulse_3s_ease-in-out_infinite]"
-              : ""
-        }`}
-      >
-        <div className="absolute left-[17%] top-[15%] h-[15%] w-[30%] rotate-[-35deg] rounded-full bg-white/35 blur-md" />
-
-        <div
-          className={`size-[38%] rounded-full border border-teal-100/20 bg-teal-100/10 transition-transform duration-300 ${
-            state === "speaking" ? "scale-125" : "scale-100"
-          }`}
-        />
-      </div>
-    </div>
+    <canvas ref={ref} role="img" aria-label={`Voice assistant: ${state}`}
+            style={{ width: size, height: size }} />
   );
 }

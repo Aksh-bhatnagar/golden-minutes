@@ -1,5 +1,4 @@
-﻿
-export type YesNoUnknown = "yes" | "no" | "unknown";
+﻿export type YesNoUnknown = "yes" | "no" | "unknown";
 
 export interface FraudReport {
   fraud_type: string | null;
@@ -9,8 +8,8 @@ export interface FraudReport {
   incident_date: string | null;
   incident_time: string | null;
   registered_phone_last4: string | null;
-  otp_or_pin_shared: YesNoUnknown;
-  contacted_bank: YesNoUnknown;
+  otp_or_pin_shared: YesNoUnknown | null;
+  contacted_bank: YesNoUnknown | null;
   missing_fields: string[];
   confirmed_by_user: boolean;
   consent_to_save: boolean;
@@ -23,7 +22,7 @@ export interface ConversationTurnResponse {
   current_field: string | null;
   needs_review: boolean;
   review_fields: string[];
-  summary: string;
+  summary: unknown;
   model: string;
 }
 
@@ -47,8 +46,8 @@ export function createEmptyReport(): FraudReport {
     incident_date: null,
     incident_time: null,
     registered_phone_last4: null,
-    otp_or_pin_shared: "unknown",
-    contacted_bank: "unknown",
+    otp_or_pin_shared: null,
+    contacted_bank: null,
     missing_fields: [],
     confirmed_by_user: false,
     consent_to_save: false,

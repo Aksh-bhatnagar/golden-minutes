@@ -99,7 +99,7 @@ def _build_pdf(report: FraudReport, pdf_path: Path, reference: str) -> None:
         value = data.get(field)
 
         if field == "amount_inr" and value is not None:
-            value = f"₹{value}"
+            value = f"INR {value:,.2f}"
 
         rows.append([
             Paragraph(_safe_text(label), styles["BodyText"]),

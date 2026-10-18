@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGnaniStream } from "@/hooks/useGnaniStream";
 import { apiRequest } from "@/services/api";
@@ -14,9 +13,10 @@ import type {
 import {
   submitConversationTurn,
   synthesizeSpeech,
+  type HistoryItem,
 } from "@/services/conversationApi";
 
-const SILENCE_DELAY_MS = 1400;
+const SILENCE_DELAY_MS = 700;
 const INTERRUPTION_RMS_THRESHOLD = 0.075;
 const INTERRUPTION_CONFIRM_MS = 180;
 
@@ -27,7 +27,7 @@ interface OpeningQuestion {
 
 interface OpeningResponse {
   question: string | OpeningQuestion;
-  summary?: string;
+  summary?: unknown;
 }
 
 interface StartOptions {
@@ -89,6 +89,7 @@ export function useVoiceSession() {
   const languageRef = useRef(language);
   const statusRef = useRef<VoiceState>("idle");
   const mutedRef = useRef(false);
+  const historyRef = useRef<HistoryItem[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -280,6 +281,8 @@ export function useVoiceSession() {
         reportRef.current,
         transcript,
         currentFieldRef.current,
+        languageRef.current,
+        historyRef.current.slice(-6),
       );
 
       if (
@@ -305,6 +308,11 @@ export function useVoiceSession() {
           "The conversation service returned an empty response.",
         );
       }
+
+      historyRef.current.push(
+        { role: "user", content: transcript },
+        { role: "assistant", content: responseText },
+      );
 
       setCaptions((previous) => [
         ...previous,
@@ -459,6 +467,7 @@ export function useVoiceSession() {
         currentFieldRef.current = null;
         setCurrentField(null);
         setCaptions([]);
+        historyRef.current = [];
       }
 
       setCurrentTranscript("");
@@ -513,6 +522,11 @@ export function useVoiceSession() {
           ...previous,
           makeCaption("assistant", normalized.text),
         ]);
+
+        historyRef.current.push({
+          role: "assistant",
+          content: normalized.text,
+        });
 
         await playAssistantResponse(
           normalized.text,
