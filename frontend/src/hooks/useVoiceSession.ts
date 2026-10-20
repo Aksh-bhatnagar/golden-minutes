@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGnaniStream } from "@/hooks/useGnaniStream";
 import { apiRequest } from "@/services/api";
-import {
-  createEmptyReport,
-  type FraudReport,
-} from "@/types/report";
+import { createEmptyReport, type FraudReport } from "@/types/report";
 import type {
   Caption,
   SupportedLanguage,
@@ -16,9 +13,46 @@ import {
   type HistoryItem,
 } from "@/services/conversationApi";
 
-const SILENCE_DELAY_MS = 700;
 const INTERRUPTION_RMS_THRESHOLD = 0.075;
 const INTERRUPTION_CONFIRM_MS = 180;
+
+// How long to wait after the caller stops talking before answering.
+const SILENCE_SENTENCE_END_MS = 700;
+const SILENCE_DEFAULT_MS = 1000;
+const SILENCE_INCOMPLETE_MS = 1900;
+const SILENCE_DIGITS_MS = 2000;
+
+// If the caller keeps talking within this window after we submitted,
+// it is the same answer: discard our reply and merge.
+const CONTINUATION_WINDOW_MS = 4500;
+
+const INCOMPLETE_END =
+  /(?:\b(?:and|but|so|because|then|also|um+|uh+|like|aur|lekin|toh|phir|matlab|ki|ya|woh|wo|mera|meri)\b|[,:;\-–…])\s*$/i;
+const DIGIT_FIELDS = new Set([
+  "transaction_reference",
+  "registered_phone_last4",
+  "amount_inr",
+]);
+
+let lastSpeechAt = 0;
+
+function mark(label: string) {
+  const now = performance.now();
+  const since = lastSpeechAt
+    ? ` (+${Math.round(now - lastSpeechAt)}ms after last speech)`
+    : "";
+  console.log(`${new Date().toISOString().slice(11, 23)} [UI] ${label}${since}`);
+}
+
+function silenceDelayFor(text: string, field: string | null): number {
+  const t = text.trim();
+  if (INCOMPLETE_END.test(t)) return SILENCE_INCOMPLETE_MS;
+  if (field && DIGIT_FIELDS.has(field) && /\d\s*$/.test(t)) {
+    return SILENCE_DIGITS_MS;
+  }
+  if (/[.?!।]$/.test(t)) return SILENCE_SENTENCE_END_MS;
+  return SILENCE_DEFAULT_MS;
+}
 
 interface OpeningQuestion {
   field?: string;
@@ -34,6 +68,21 @@ interface StartOptions {
   preserveReport?: boolean;
 }
 
+interface SessionOptions {
+  language?: SupportedLanguage;
+  onAllCollected?: () => void;
+}
+
+interface TurnSnapshot {
+  report: FraudReport;
+  field: string | null;
+  historyLen: number;
+  captionsLen: number;
+  transcript: string;
+  at: number;
+  applied: boolean;
+}
+
 function normalizeQuestion(
   value: OpeningResponse["question"],
 ): { text: string; field: string | null } {
@@ -43,24 +92,15 @@ function normalizeQuestion(
 
   if (value && typeof value === "object") {
     return {
-      text:
-        typeof value.question === "string"
-          ? value.question.trim()
-          : "",
-      field:
-        typeof value.field === "string"
-          ? value.field
-          : null,
+      text: typeof value.question === "string" ? value.question.trim() : "",
+      field: typeof value.field === "string" ? value.field : null,
     };
   }
 
   return { text: "", field: null };
 }
 
-function makeCaption(
-  speaker: Caption["speaker"],
-  text: string,
-): Caption {
+function makeCaption(speaker: Caption["speaker"], text: string): Caption {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     speaker,
@@ -70,19 +110,18 @@ function makeCaption(
   };
 }
 
-export function useVoiceSession() {
+export function useVoiceSession(options: SessionOptions = {}) {
   const [status, setStatus] = useState<VoiceState>("idle");
-  const [language, setLanguageState] =
-    useState<SupportedLanguage>("en");
+  const [language, setLanguageState] = useState<SupportedLanguage>(
+    options.language ?? "en",
+  );
   const [muted, setMutedState] = useState(false);
   const [captions, setCaptions] = useState<Caption[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState("");
-  const [report, setReport] =
-    useState<FraudReport>(createEmptyReport);
-  const [currentField, setCurrentField] =
-    useState<string | null>(null);
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null);
+  const [report, setReport] = useState<FraudReport>(createEmptyReport);
+  const [currentField, setCurrentField] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [speakingText, setSpeakingText] = useState<string | null>(null);
 
   const reportRef = useRef(report);
   const currentFieldRef = useRef(currentField);
@@ -90,20 +129,27 @@ export function useVoiceSession() {
   const statusRef = useRef<VoiceState>("idle");
   const mutedRef = useRef(false);
   const historyRef = useRef<HistoryItem[]>([]);
+  const captionsRef = useRef<Caption[]>([]);
+  const snapshotRef = useRef<TurnSnapshot | null>(null);
+  const turnTokenRef = useRef(0);
+  const spokenLanguageRef = useRef<Exclude<SupportedLanguage, "auto">>(
+    options.language && options.language !== "auto" ? options.language : "en",
+  );
+  const pendingCompleteRef = useRef(false);
+  const onAllCollectedRef = useRef(options.onAllCollected);
+  onAllCollectedRef.current = options.onAllCollected;
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
 
-  const silenceTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interruptionStartedRef = useRef<number | null>(null);
 
   const processingRef = useRef(false);
   const sessionActiveRef = useRef(false);
   const sessionIdRef = useRef(0);
   const pendingTranscriptRef = useRef("");
-  const processTranscriptRef =
-    useRef<(() => Promise<void>) | null>(null);
+  const processTranscriptRef = useRef<(() => Promise<void>) | null>(null);
 
   const updateStatus = useCallback((next: VoiceState) => {
     statusRef.current = next;
@@ -127,12 +173,56 @@ export function useVoiceSession() {
     setReport(nextReport);
   }, []);
 
+  const pushCaption = useCallback((caption: Caption) => {
+    captionsRef.current = [...captionsRef.current, caption];
+    setCaptions(captionsRef.current);
+  }, []);
+
+  const resetCaptions = useCallback(() => {
+    captionsRef.current = [];
+    setCaptions([]);
+  }, []);
+
+  const rollbackCaptions = useCallback((snap: TurnSnapshot) => {
+    captionsRef.current = captionsRef.current.slice(0, snap.captionsLen);
+    setCaptions(captionsRef.current);
+  }, []);
+
+  // Undo a turn whose reply was already applied.
+  const restoreSnapshot = useCallback(
+    (snap: TurnSnapshot) => {
+      reportRef.current = snap.report;
+      setReport(snap.report);
+
+      currentFieldRef.current = snap.field;
+      setCurrentField(snap.field);
+
+      historyRef.current = historyRef.current.slice(0, snap.historyLen);
+      rollbackCaptions(snap);
+    },
+    [rollbackCaptions],
+  );
+
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current !== null) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
   }, []);
+
+  const armSilenceTimer = useCallback(() => {
+    clearSilenceTimer();
+
+    silenceTimerRef.current = setTimeout(
+      () => {
+        void processTranscriptRef.current?.();
+      },
+      silenceDelayFor(
+        pendingTranscriptRef.current,
+        currentFieldRef.current,
+      ),
+    );
+  }, [clearSilenceTimer]);
 
   const stopPlayback = useCallback(() => {
     const audio = audioRef.current;
@@ -149,6 +239,24 @@ export function useVoiceSession() {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
+
+    setSpeakingText(null);
+  }, []);
+
+  // Progress (0..1) of the audio that is currently playing.
+  const getPlaybackProgress = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration || !Number.isFinite(audio.duration)) {
+      return 0;
+    }
+    return Math.min(1, audio.currentTime / audio.duration);
+  }, []);
+
+  // When the last reply completed the report, close the call after it is heard.
+  const finishIfComplete = useCallback(() => {
+    if (!pendingCompleteRef.current) return;
+    pendingCompleteRef.current = false;
+    onAllCollectedRef.current?.();
   }, []);
 
   const playAssistantResponse = useCallback(
@@ -167,8 +275,11 @@ export function useVoiceSession() {
       try {
         const audioBlob = await synthesizeSpeech(
           text,
-          languageRef.current,
+          languageRef.current === "auto"
+            ? spokenLanguageRef.current
+            : languageRef.current,
         );
+        mark("TTS audio received");
 
         if (
           !sessionActiveRef.current ||
@@ -193,18 +304,20 @@ export function useVoiceSession() {
           }
 
           audioRef.current = null;
+          // The caller heard the whole reply: a new answer is a new turn.
+          snapshotRef.current = null;
+          setSpeakingText(null);
 
           if (audioUrlRef.current === url) {
             URL.revokeObjectURL(url);
             audioUrlRef.current = null;
           }
 
-          if (
-            sessionActiveRef.current &&
-            statusRef.current === "speaking"
-          ) {
+          if (sessionActiveRef.current && statusRef.current === "speaking") {
             updateStatus("listening");
           }
+
+          finishIfComplete();
         };
 
         audio.onerror = () => {
@@ -216,6 +329,7 @@ export function useVoiceSession() {
           }
 
           audioRef.current = null;
+          setSpeakingText(null);
 
           if (audioUrlRef.current === url) {
             URL.revokeObjectURL(url);
@@ -223,14 +337,17 @@ export function useVoiceSession() {
           }
 
           if (sessionActiveRef.current) {
-            setErrorMessage(
-              "Unable to play the assistant's audio response.",
-            );
+            setErrorMessage("Unable to play the assistant's audio response.");
             updateStatus("error");
           }
         };
 
         await audio.play();
+        mark("audio playing");
+
+        // Show the caption only now, and let it reveal as the audio plays.
+        pushCaption(makeCaption("assistant", text));
+        setSpeakingText(text);
       } catch (cause) {
         if (
           !sessionActiveRef.current ||
@@ -239,29 +356,31 @@ export function useVoiceSession() {
           return;
         }
 
+        // No audio: still show the text so the call can continue.
+        pushCaption(makeCaption("assistant", text));
+        setSpeakingText(null);
+
         setErrorMessage(
           cause instanceof Error
             ? cause.message
             : "Unable to generate or play the assistant's response.",
         );
         updateStatus("error");
+        finishIfComplete();
       }
     },
-    [stopPlayback, updateStatus],
+    [finishIfComplete, pushCaption, stopPlayback, updateStatus],
   );
 
   const processPendingTranscript = useCallback(async () => {
-    if (
-      processingRef.current ||
-      !sessionActiveRef.current
-    ) {
-      return;
-    }
+    if (processingRef.current || !sessionActiveRef.current) return;
 
     const transcript = pendingTranscriptRef.current.trim();
     if (!transcript) return;
 
     const expectedSessionId = sessionIdRef.current;
+    const turn = turnTokenRef.current + 1;
+    turnTokenRef.current = turn;
 
     processingRef.current = true;
     pendingTranscriptRef.current = "";
@@ -269,12 +388,20 @@ export function useVoiceSession() {
     setCurrentTranscript("");
     stopPlayback();
 
-    setCaptions((previous) => [
-      ...previous,
-      makeCaption("user", transcript),
-    ]);
+    const snapshot: TurnSnapshot = {
+      report: reportRef.current,
+      field: currentFieldRef.current,
+      historyLen: historyRef.current.length,
+      captionsLen: captionsRef.current.length,
+      transcript,
+      at: Date.now(),
+      applied: false,
+    };
+    snapshotRef.current = snapshot;
 
+    pushCaption(makeCaption("user", transcript));
     updateStatus("thinking");
+    mark("silence timer fired, sending turn");
 
     try {
       const result = await submitConversationTurn(
@@ -282,15 +409,29 @@ export function useVoiceSession() {
         transcript,
         currentFieldRef.current,
         languageRef.current,
-        historyRef.current.slice(-6),
+        historyRef.current.slice(-4),
       );
+      mark("LLM reply received");
 
+      // Superseded because the caller kept talking, or the session ended.
       if (
         !sessionActiveRef.current ||
-        sessionIdRef.current !== expectedSessionId
+        sessionIdRef.current !== expectedSessionId ||
+        turn !== turnTokenRef.current
       ) {
         return;
       }
+
+      const responseText =
+        typeof result.response === "string" ? result.response : "";
+
+      if (!responseText.trim()) {
+        throw new Error("The conversation service returned an empty response.");
+      }
+
+      snapshot.applied = true;
+      pendingCompleteRef.current = result.action === "confirm";
+      if (result.language) spokenLanguageRef.current = result.language;
 
       reportRef.current = result.report;
       setReport(result.report);
@@ -298,35 +439,17 @@ export function useVoiceSession() {
       currentFieldRef.current = result.current_field;
       setCurrentField(result.current_field);
 
-      const responseText =
-        typeof result.response === "string"
-          ? result.response
-          : "";
-
-      if (!responseText.trim()) {
-        throw new Error(
-          "The conversation service returned an empty response.",
-        );
-      }
-
       historyRef.current.push(
         { role: "user", content: transcript },
         { role: "assistant", content: responseText },
       );
 
-      setCaptions((previous) => [
-        ...previous,
-        makeCaption("assistant", responseText),
-      ]);
-
-      await playAssistantResponse(
-        responseText,
-        expectedSessionId,
-      );
+      await playAssistantResponse(responseText, expectedSessionId);
     } catch (cause) {
       if (
         sessionActiveRef.current &&
-        sessionIdRef.current === expectedSessionId
+        sessionIdRef.current === expectedSessionId &&
+        turn === turnTokenRef.current
       ) {
         setErrorMessage(
           cause instanceof Error
@@ -336,27 +459,25 @@ export function useVoiceSession() {
         updateStatus("error");
       }
     } finally {
-      if (sessionIdRef.current !== expectedSessionId) return;
+      if (sessionIdRef.current === expectedSessionId) {
+        processingRef.current = false;
 
-      processingRef.current = false;
+        if (sessionActiveRef.current) {
+          if (statusRef.current === "thinking") {
+            updateStatus("listening");
+          }
 
-      if (!sessionActiveRef.current) return;
-
-      if (statusRef.current === "thinking") {
-        updateStatus("listening");
-      }
-
-      if (pendingTranscriptRef.current.trim()) {
-        clearSilenceTimer();
-
-        silenceTimerRef.current = setTimeout(() => {
-          void processTranscriptRef.current?.();
-        }, SILENCE_DELAY_MS);
+          if (pendingTranscriptRef.current.trim()) {
+            armSilenceTimer();
+          }
+        }
       }
     }
   }, [
+    armSilenceTimer,
     clearSilenceTimer,
     playAssistantResponse,
+    pushCaption,
     stopPlayback,
     updateStatus,
   ]);
@@ -371,34 +492,64 @@ export function useVoiceSession() {
 
       if (!text || !sessionActiveRef.current) return;
 
-      pendingTranscriptRef.current = [
-        pendingTranscriptRef.current,
-        text,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
+      mark(`transcript: "${text.slice(0, 40)}"`);
+      lastSpeechAt = performance.now();
 
-      setCurrentTranscript(pendingTranscriptRef.current);
+      const snap = snapshotRef.current;
+      const continuing =
+        snap !== null && Date.now() - snap.at < CONTINUATION_WINDOW_MS;
 
-      if (statusRef.current === "speaking") {
+      if (continuing && snap) {
+        // The caller is still on the previous answer. Drop our reply,
+        // restore the state from before it, and treat both parts as one.
+        turnTokenRef.current += 1;
+        pendingCompleteRef.current = false;
         stopPlayback();
+
+        if (snap.applied) restoreSnapshot(snap);
+        else rollbackCaptions(snap);
+
+        pendingTranscriptRef.current = [
+          snap.transcript,
+          pendingTranscriptRef.current,
+          text,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+        snapshotRef.current = null;
         interruptionStartedRef.current = null;
-        updateStatus("listening");
-      } else if (
-        statusRef.current !== "thinking" &&
-        statusRef.current !== "error"
-      ) {
-        updateStatus("listening");
+
+        if (statusRef.current !== "thinking") updateStatus("listening");
+      } else {
+        pendingTranscriptRef.current = [pendingTranscriptRef.current, text]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+        if (statusRef.current === "speaking") {
+          stopPlayback();
+          interruptionStartedRef.current = null;
+          updateStatus("listening");
+        } else if (
+          statusRef.current !== "thinking" &&
+          statusRef.current !== "error"
+        ) {
+          updateStatus("listening");
+        }
       }
 
-      clearSilenceTimer();
-
-      silenceTimerRef.current = setTimeout(() => {
-        void processTranscriptRef.current?.();
-      }, SILENCE_DELAY_MS);
+      setCurrentTranscript(pendingTranscriptRef.current);
+      armSilenceTimer();
     },
-    [clearSilenceTimer, stopPlayback, updateStatus],
+    [
+      armSilenceTimer,
+      restoreSnapshot,
+      rollbackCaptions,
+      stopPlayback,
+      updateStatus,
+    ],
   );
 
   const handleAudioLevel = useCallback(
@@ -441,10 +592,10 @@ export function useVoiceSession() {
   });
 
   const start = useCallback(
-    async (options: StartOptions = {}) => {
+    async (startOptions: StartOptions = {}) => {
       if (sessionActiveRef.current) return;
 
-      const preserveReport = options.preserveReport === true;
+      const preserveReport = startOptions.preserveReport === true;
       const sessionId = sessionIdRef.current + 1;
 
       sessionIdRef.current = sessionId;
@@ -457,6 +608,11 @@ export function useVoiceSession() {
 
       clearSilenceTimer();
       stopPlayback();
+      snapshotRef.current = null;
+      pendingCompleteRef.current = false;
+
+      spokenLanguageRef.current =
+        languageRef.current === "auto" ? "en" : languageRef.current;
 
       if (!preserveReport) {
         const emptyReport = createEmptyReport();
@@ -466,7 +622,7 @@ export function useVoiceSession() {
 
         currentFieldRef.current = null;
         setCurrentField(null);
-        setCaptions([]);
+        resetCaptions();
         historyRef.current = [];
       }
 
@@ -494,7 +650,10 @@ export function useVoiceSession() {
           "/conversation/next",
           {
             method: "POST",
-            body: JSON.stringify({ report: reportRef.current }),
+            body: JSON.stringify({
+              report: reportRef.current,
+              language: spokenLanguageRef.current,
+            }),
           },
         );
 
@@ -518,20 +677,12 @@ export function useVoiceSession() {
           setCurrentField(normalized.field);
         }
 
-        setCaptions((previous) => [
-          ...previous,
-          makeCaption("assistant", normalized.text),
-        ]);
-
         historyRef.current.push({
           role: "assistant",
           content: normalized.text,
         });
 
-        await playAssistantResponse(
-          normalized.text,
-          sessionId,
-        );
+        await playAssistantResponse(normalized.text, sessionId);
       } catch (cause) {
         if (
           !sessionActiveRef.current ||
@@ -551,6 +702,7 @@ export function useVoiceSession() {
     [
       clearSilenceTimer,
       playAssistantResponse,
+      resetCaptions,
       stopPlayback,
       stream.start,
       updateStatus,
@@ -560,23 +712,20 @@ export function useVoiceSession() {
   const stop = useCallback(() => {
     sessionIdRef.current += 1;
     sessionActiveRef.current = false;
+    pendingCompleteRef.current = false;
 
     clearSilenceTimer();
     stopPlayback();
     stream.stop();
 
+    snapshotRef.current = null;
     interruptionStartedRef.current = null;
     pendingTranscriptRef.current = "";
     processingRef.current = false;
 
     setCurrentTranscript("");
     updateStatus("ended");
-  }, [
-    clearSilenceTimer,
-    stopPlayback,
-    stream.stop,
-    updateStatus,
-  ]);
+  }, [clearSilenceTimer, stopPlayback, stream.stop, updateStatus]);
 
   const setMuted = useCallback(
     (nextMuted: boolean) => {
@@ -591,15 +740,12 @@ export function useVoiceSession() {
     [stream.setMuted],
   );
 
-  const setLanguage = useCallback(
-    (nextLanguage: SupportedLanguage) => {
-      if (sessionActiveRef.current) return;
+  const setLanguage = useCallback((nextLanguage: SupportedLanguage) => {
+    if (sessionActiveRef.current) return;
 
-      languageRef.current = nextLanguage;
-      setLanguageState(nextLanguage);
-    },
-    [],
-  );
+    languageRef.current = nextLanguage;
+    setLanguageState(nextLanguage);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -620,6 +766,8 @@ export function useVoiceSession() {
     setMuted,
     captions,
     currentTranscript,
+    speakingText,
+    getPlaybackProgress,
     report,
     updateReport,
     currentField,

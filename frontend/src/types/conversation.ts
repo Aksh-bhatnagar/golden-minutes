@@ -9,7 +9,9 @@ export type VoiceState =
   | "error"
   | "ended";
 
-export type SupportedLanguage = "en" | "hi" | "hinglish";
+export type SupportedLanguage =
+  | "auto" | "en" | "hi" | "hinglish"
+  | "bn" | "gu" | "kn" | "ml" | "mr" | "pa" | "ta" | "te";
 
 export interface Caption {
   id: string;
@@ -26,3 +28,4 @@ export interface VoiceSessionState {
   currentTranscript: string;
   errorMessage: string | null;
 }
+

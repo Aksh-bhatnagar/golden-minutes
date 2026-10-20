@@ -1,0 +1,20 @@
+{
+  "reference": "G15-E0119721",
+  "created_at": "2026-10-18T08:41:58.683063+00:00",
+  "pdf_filename": "G15-E0119721.pdf",
+  "report": {
+    "fraud_type": "lost money in wrong account",
+    "bank_or_payment_app": "SBI Bank via PhonePe",
+    "amount_inr": 9500.0,
+    "transaction_reference": "923425112088",
+    "incident_date": "yesterday",
+    "incident_time": "2:45 pm",
+    "registered_phone_last4": "9424",
+    "otp_or_pin_shared": "no",
+    "contacted_bank": "yes",
+    "missing_fields": [],
+    "skipped_fields": [],
+    "confirmed_by_user": false,
+    "consent_to_save": false
+  }
+}

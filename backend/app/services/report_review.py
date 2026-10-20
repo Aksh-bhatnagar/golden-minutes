@@ -113,6 +113,16 @@ def correct_report_field(
     if isinstance(value, str):
         safe_value = redact_sensitive_secrets(value.strip())
 
+    if safe_value in (None, ""):
+        safe_value = None
+    else:
+        from app.services.parsers import normalize_field
+
+        normalized = normalize_field(field, safe_value)
+        if normalized is None:
+            raise ValueError("That value doesn't look right for this field.")
+        safe_value = normalized
+    
     data = report.model_dump()
     data[field] = safe_value
 

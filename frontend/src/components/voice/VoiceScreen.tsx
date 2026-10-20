@@ -1,11 +1,5 @@
-
-import { useCallback, useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  Languages,
-  AlertCircle,
-  ClipboardCheck,
-} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertCircle, ArrowLeft, ClipboardCheck } from "lucide-react";
 
 import VoiceOrb from "@/components/voice/VoiceOrb";
 import LiveCaptions from "@/components/voice/LiveCaptions";
@@ -16,20 +10,16 @@ import ReportSaved from "@/components/report/ReportSaved";
 
 import { useVoiceSession } from "@/hooks/useVoiceSession";
 import { useReportWorkflow } from "@/hooks/useReportWorkflow";
+import { languageLabel } from "@/lib/languages";
 import type { SupportedLanguage } from "@/types/conversation";
 import type { FraudReport } from "@/types/report";
 
 interface VoiceScreenProps {
+  initialLanguage: SupportedLanguage;
   onEndCall: () => void;
 }
 
 type ScreenMode = "conversation" | "review" | "consent" | "saved";
-
-const languageLabels: Record<SupportedLanguage, string> = {
-  en: "English",
-  hi: "हिन्दी",
-  hinglish: "Hinglish",
-};
 
 const statusLabels = {
   idle: "Ready to begin",
@@ -42,8 +32,17 @@ const statusLabels = {
   ended: "Conversation ended",
 } as const;
 
-export default function VoiceScreen({ onEndCall }: VoiceScreenProps) {
-  const session = useVoiceSession();
+export default function VoiceScreen({
+  initialLanguage,
+  onEndCall,
+}: VoiceScreenProps) {
+  // Lets the voice hook trigger the review screen once every detail is collected.
+  const allCollectedRef = useRef<() => void>(() => {});
+
+  const session = useVoiceSession({
+    language: initialLanguage,
+    onAllCollected: () => allCollectedRef.current(),
+  });
   const workflow = useReportWorkflow();
 
   const [screen, setScreen] = useState<ScreenMode>("conversation");
@@ -56,11 +55,12 @@ export default function VoiceScreen({ onEndCall }: VoiceScreenProps) {
     report: sessionReport,
     status,
     language,
-    setLanguage,
     muted,
     setMuted,
     captions,
     currentTranscript,
+    speakingText,
+    getPlaybackProgress,
     errorMessage: sessionError,
   } = session;
 
@@ -115,6 +115,10 @@ export default function VoiceScreen({ onEndCall }: VoiceScreenProps) {
     await beginReview(sessionReport);
     setScreen("review");
   }, [beginReview, sessionReport, stopSession]);
+
+  allCollectedRef.current = () => {
+    void handleBeginReview();
+  };
 
   const handleSaveCorrections = useCallback(
     async (updatedReport: FraudReport) => {
@@ -189,7 +193,6 @@ export default function VoiceScreen({ onEndCall }: VoiceScreenProps) {
     );
   }
 
-    const busyStates = ["connecting", "listening", "speaking", "thinking", "reconnecting"];
   const blocked = ["connecting", "ended", "error"].includes(status);
 
   return (
@@ -198,34 +201,37 @@ export default function VoiceScreen({ onEndCall }: VoiceScreenProps) {
         <button onClick={handleEndCall} className="btn-light !min-h-10 !px-4">
           <ArrowLeft size={16} /> Back
         </button>
-        <label className="btn-light !min-h-10 gap-2 !px-4">
-          <Languages size={15} className="text-violet" />
-          <select value={language} aria-label="Conversation language"
-                  onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
-                  disabled={busyStates.includes(status)}
-                  className="bg-transparent outline-none">
-            {Object.entries(languageLabels).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </label>
+        <span className="rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs font-medium text-mute">
+          {languageLabel(language)}
+        </span>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center py-6">
         <VoiceOrb state={status} size={300} />
-        <p className="mt-2 rounded-full border border-line bg-white/80 px-3 py-1 text-xs font-medium text-mute" aria-live="polite">
+        <p
+          className="mt-2 rounded-full border border-line bg-white/80 px-3 py-1 text-xs font-medium text-mute"
+          aria-live="polite"
+        >
           {statusLabels[status]}
         </p>
 
         {(sessionError || workflowError) && (
-          <div role="alert" className="mt-5 flex max-w-lg items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div
+            role="alert"
+            className="mt-5 flex max-w-lg items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
             <p>{sessionError || workflowError}</p>
           </div>
         )}
 
         <div className="mt-8 w-full max-w-xl">
-          <LiveCaptions captions={captions} currentTranscript={currentTranscript} />
+          <LiveCaptions
+            captions={captions}
+            currentTranscript={currentTranscript}
+            speakingText={speakingText}
+            getProgress={getPlaybackProgress}
+          />
         </div>
 
         <p className="mt-6 max-w-sm text-center text-xs leading-5 text-mute/80">
@@ -234,12 +240,19 @@ export default function VoiceScreen({ onEndCall }: VoiceScreenProps) {
       </div>
 
       <div className="mx-auto w-full max-w-md space-y-3">
-        <VoiceControls muted={muted} disabled={blocked}
-                       onToggleMute={() => setMuted(!muted)} onEndCall={handleEndCall} />
+        <VoiceControls
+          muted={muted}
+          disabled={blocked}
+          onToggleMute={() => setMuted(!muted)}
+          onEndCall={handleEndCall}
+        />
         <button
           onClick={() => void handleBeginReview()}
-          disabled={busy || blocked || status === "thinking" || stage === "saving"}
-          className="btn-light w-full">
+          disabled={
+            busy || blocked || status === "thinking" || stage === "saving"
+          }
+          className="btn-light w-full"
+        >
           <ClipboardCheck size={17} /> Review report
         </button>
       </div>

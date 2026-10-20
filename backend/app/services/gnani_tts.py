@@ -8,6 +8,14 @@ TTS_LANGUAGES = {
     "en": "en-IN",
     "hi": "hi-IN",
     "hinglish": "hi-IN",
+    "bn": "bn-IN",
+    "gu": "gu-IN",
+    "kn": "kn-IN",
+    "ml": "ml-IN",
+    "mr": "mr-IN",
+    "pa": "pa-IN",
+    "ta": "ta-IN",
+    "te": "te-IN",
 }
 
 # Reused across requests to avoid reconnecting every time.

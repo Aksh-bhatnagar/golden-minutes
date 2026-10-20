@@ -23,21 +23,57 @@ from app.services.conversation import (
     process_conversation_answer,
 )
 from app.services.llm import redact_sensitive_secrets
+from app.core.timing import log
 
 router = APIRouter(prefix="/api", tags=["Golden 15"])
 
 FRAME_BYTES = 1024
 
 LANGUAGE_CODES = {
+    "auto": "en-IN",
     "en": "en-IN",
     "hi": "hi-IN",
     "hinglish": "en-IN",
+    "bn": "bn-IN",
+    "gu": "gu-IN",
+    "kn": "kn-IN",
+    "ml": "ml-IN",
+    "mr": "mr-IN",
+    "pa": "pa-IN",
+    "ta": "ta-IN",
+    "te": "te-IN",
+}
+
+OPENINGS = {
+    "en": (
+        "Hi, I'm Golden Minutes, an AI assistant on the cybercrime helpline desk. "
+        "I'm sorry you're going through this. "
+        "Tell me what happened, in your own words. Take your time."
+    ),
+    "hi": (
+        "नमस्ते, मैं Golden Minutes हूँ, साइबर क्राइम हेल्पलाइन डेस्क की AI असिस्टेंट। "
+        "मुझे अफ़सोस है कि आपके साथ ऐसा हुआ। "
+        "आप आराम से बताइए, क्या हुआ?"
+    ),
+    "hinglish": (
+        "Hi, मैं Golden Minutes हूँ, cybercrime helpline desk की AI assistant। "
+        "मुझे अफ़सोस है कि आपके साथ ऐसा हुआ। "
+        "आप आराम से बताइए, क्या हुआ?"
+    ),
+    "bn": "নমস্কার, আমি Golden Minutes, সাইবার ক্রাইম হেল্পলাইনের AI সহকারী। কী হয়েছে, আপনি ধীরে ধীরে বলুন।",
+    "gu": "નમસ્તે, હું Golden Minutes છું, સાયબર ક્રાઇમ હેલ્પલાઇનની AI સહાયક. શું થયું, તમે શાંતિથી જણાવો.",
+    "kn": "ನಮಸ್ಕಾರ, ನಾನು Golden Minutes, ಸೈಬರ್ ಕ್ರೈಂ ಹೆಲ್ಪ್‌ಲೈನ್‌ನ AI ಸಹಾಯಕ. ಏನಾಯಿತು ಎಂದು ನಿಧಾನವಾಗಿ ಹೇಳಿ.",
+    "ml": "നമസ്കാരം, ഞാൻ Golden Minutes, സൈബർ ക്രൈം ഹെൽപ്പ്‌ലൈനിലെ AI സഹായി. എന്താണ് സംഭവിച്ചതെന്ന് പതുക്കെ പറയൂ.",
+    "mr": "नमस्कार, मी Golden Minutes, सायबर क्राइम हेल्पलाइनची AI सहाय्यक. काय झालं ते शांतपणे सांगा.",
+    "pa": "ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਮੈਂ Golden Minutes ਹਾਂ, ਸਾਈਬਰ ਕ੍ਰਾਈਮ ਹੈਲਪਲਾਈਨ ਦੀ AI ਸਹਾਇਕ। ਕੀ ਹੋਇਆ, ਤੁਸੀਂ ਆਰਾਮ ਨਾਲ ਦੱਸੋ।",
+    "ta": "வணக்கம், நான் Golden Minutes, சைபர் கிரைம் உதவி எண்ணின் AI உதவியாளர். என்ன நடந்தது என்று நிதானமாகச் சொல்லுங்கள்.",
+    "te": "నమస్కారం, నేను Golden Minutes, సైబర్ క్రైమ్ హెల్ప్‌లైన్ AI సహాయకురాలిని. ఏమి జరిగిందో నెమ్మదిగా చెప్పండి.",
 }
 
 
 class NextQuestionRequest(BaseModel):
     report: FraudReport
-
+    language: str = "en"
 
 class TTSRequest(BaseModel):
     text: str
@@ -53,7 +89,7 @@ class ConversationTurnRequest(BaseModel):
     report: FraudReport
     transcript: str = Field(min_length=1, max_length=3000)
     current_field: str | None = None
-    language: Literal["en", "hi", "hinglish"] = "en"
+    language: str = "en"
     conversation_history: list[HistoryItem] = Field(
         default_factory=list, max_length=10
     )
@@ -81,16 +117,11 @@ def next_question(payload: NextQuestionRequest):
     report = payload.report
 
     # Start naturally. Let the caller explain before beginning follow-ups.
-    opening = (
-        "Hi, I'm an AI assistant, not the official helpline. "
-        "I'll help you get your details ready. "
-        "Was money taken from your account?"
-    )
 
     return {
         "question": {
             "field": "fraud_type",
-            "question": opening,
+            "question": OPENINGS.get(payload.language, OPENINGS["en"]),
         },
         "summary": build_report_summary(report),
     }
@@ -227,6 +258,13 @@ async def speech_to_text_stream(
                     transcript = redact_sensitive_secrets(event.text.strip())
 
                     if transcript:
+                        log(
+                            "STT",
+                            f"transcript to browser "
+                            f"(audio {getattr(event, 'audio_duration_ms', None)}ms, "
+                            f"gnani latency {getattr(event, 'latency', None)}ms): "
+                            f"{transcript[:60]!r}",
+                        )
                         await websocket.send_json({
                             "type": "transcript",
                             "text": transcript,
@@ -328,9 +366,15 @@ async def speech_to_text_stream(
 @router.post("/tts")
 async def text_to_speech(payload: TTSRequest):
     try:
+        started = perf_counter()
         audio_bytes = await synthesize_speech(
             text=payload.text,
             language=payload.language,
+        )
+        log(
+            "TTS",
+            f"{perf_counter() - started:.2f}s | {len(payload.text)} chars | "
+            f"lang={payload.language} | {len(audio_bytes) // 1024}KB",
         )
 
         return Response(
@@ -370,8 +414,12 @@ async def conversation_turn(payload: ConversationTurnRequest):
             ],
         )
 
-        print(f"[TURN] total={perf_counter() - started:.2f}s")
-
+        log(
+            "TURN",
+            f"total={perf_counter() - started:.2f}s path={result.get('path')} "
+            f"lang={payload.language} in={payload.transcript[:50]!r} "
+            f"reply={result['response'][:100]!r}",
+        )
         return {
             "report": result["report"].model_dump(),
             "response": result["response"],
@@ -381,20 +429,17 @@ async def conversation_turn(payload: ConversationTurnRequest):
             "review_fields": result["review_fields"],
             "summary": result["summary"],
             "model": result["model"],
+            "language": result.get("language", "en"),
         }
 
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     except RuntimeError as exc:
+        log("TURN", f"failed: {exc}")
         raise HTTPException(
             status_code=502,
             detail="The conversation service is temporarily unavailable.",
         ) from exc
 
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="The conversation service is temporarily unavailable.",
-        ) from exc
 

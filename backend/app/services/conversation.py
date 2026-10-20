@@ -1,126 +1,101 @@
-
-import re
 from typing import Any
 
 from app.models.report import FraudReport
+from app.services import parsers as P
 from app.services.llm import (
     contains_sensitive_disclosure,
     generate_turn,
     redact_sensitive_secrets,
 )
+from app.services.questions import (
+    ALERT,
+    HANDOFF,
+    QUESTION_TEXT,
+    REDIRECT,
+    SECRET_NOTICE,
+    SORRY,
+    TEMPLATE_LANGS,
+    WRAPUP,
+    pick,
+)
 
-QUESTIONS = [
-    {"field": "fraud_type", "question": "Could you tell me what happened? Take your time."},
-    {"field": "bank_or_payment_app", "question": "Which bank or payment app was involved?"},
-    {"field": "amount_inr", "question": "Approximately how much money was lost?"},
-    {
-        "field": "transaction_reference",
-        "question": "Do you have the transaction reference? Please don't share an OTP or PIN.",
-    },
-    {"field": "incident_date", "question": "On what date did this happen?"},
-    {"field": "incident_time", "question": "Around what time did it happen?"},
-    {
-        "field": "registered_phone_last4",
-        "question": "What are the last four digits of the registered phone number?",
-    },
-    {
-        "field": "otp_or_pin_shared",
-        "question": "Did you share an OTP or PIN with the caller? Please don't tell me the code itself.",
-    },
-    {
-        "field": "contacted_bank",
-        "question": "Have you contacted your bank or payment app about this?",
-    },
+FIELD_ORDER = [
+    "fraud_type",
+    "bank_or_payment_app",
+    "amount_inr",
+    "transaction_reference",
+    "incident_date",
+    "incident_time",
+    "registered_phone_last4",
+    "otp_or_pin_shared",
+    "contacted_bank",
+    "caller_name",
 ]
+OPTIONAL = {"caller_name"}
+YES_NO = P.YES_NO_FIELDS
+MAX_ASKS = 2
 
-FIELD_LABELS = {
-    item["field"]: item["field"].replace("_", " ").title()
-    for item in QUESTIONS
-}
-REPORT_FIELDS = {item["field"] for item in QUESTIONS}
+# Names other modules import.
+QUESTIONS = [
+    {"field": f, "question": QUESTION_TEXT[f]["en"][0]} for f in FIELD_ORDER
+]
+FIELD_LABELS = {f: f.replace("_", " ").title() for f in FIELD_ORDER}
+REPORT_FIELDS = set(FIELD_ORDER)
 
 
 def is_missing_value(field: str, value: object) -> bool:
     if value is None:
         return True
-
     if isinstance(value, str) and not value.strip():
         return True
-
-    if field in {"otp_or_pin_shared", "contacted_bank"}:
+    if field in YES_NO:
         return value not in {"yes", "no", "unknown"}
-
     return False
 
 
 def get_missing_fields(report: FraudReport) -> list[str]:
+    """Required fields still empty. Used by the review and confirm steps."""
     data = report.model_dump()
+    skipped = set(report.skipped_fields)
+
     return [
-        item["field"]
-        for item in QUESTIONS
-        if is_missing_value(item["field"], data.get(item["field"]))
+        f for f in FIELD_ORDER
+        if f not in OPTIONAL
+        and f not in skipped
+        and is_missing_value(f, data.get(f))
     ]
 
 
-def get_next_question(report: FraudReport) -> dict | None:
-    missing = set(get_missing_fields(report))
-    return next(
-        (item for item in QUESTIONS if item["field"] in missing),
-        None,
-    )
+def _fast_path(
+    asked: str | None, text: str, lang: str
+) -> tuple[dict[str, Any], list[str]] | None:
+    """Understand short answers in code. None means ask the model."""
+    if not asked or lang not in TEMPLATE_LANGS:
+        return None
 
+    limit = 30 if asked in {"transaction_reference", "registered_phone_last4"} else 7
+    if len(P.tokens(text)) > limit:
+        return None
 
-def _is_valid_value(field: str, value: Any) -> bool:
-    if value is None:
-        return False
+    if asked in YES_NO:
+        value = P.parse_yes_no(text)
+        return ({asked: value}, []) if value else None
 
-    if field == "amount_inr":
-        return (
-            isinstance(value, (int, float))
-            and not isinstance(value, bool)
-            and value >= 0
-        )
+    if asked != "fraud_type" and P.is_dont_know(text):
+        return ({}, [asked])
 
-    if field == "registered_phone_last4":
-        return (
-            isinstance(value, str)
-            and re.fullmatch(r"\d{4}", value) is not None
-        )
+    parser = {
+        "amount_inr": P.parse_amount,
+        "registered_phone_last4": P.parse_last4,
+        "transaction_reference": P.parse_reference,
+    }.get(asked)
 
-    if field in {"otp_or_pin_shared", "contacted_bank"}:
-        return value in {"yes", "no", "unknown"}
+    if parser:
+        value = parser(text)
+        if value is not None:
+            return ({asked: value}, [])
 
-    if field in REPORT_FIELDS:
-        return isinstance(value, str) and bool(value.strip())
-
-    return False
-
-
-def update_report_from_extraction(
-    report: FraudReport,
-    extracted: dict[str, Any],
-) -> tuple[FraudReport, list[str]]:
-    data = report.model_dump()
-    needs_review: list[str] = []
-
-    for field in REPORT_FIELDS:
-        value = extracted.get(field)
-
-        # Never overwrite a value already collected with a missing value.
-        if value is None:
-            continue
-
-        if not _is_valid_value(field, value):
-            needs_review.append(field)
-            continue
-
-        data[field] = value
-
-    if extracted:
-        data["confirmed_by_user"] = False
-        data["consent_to_save"] = False
-
-    return FraudReport.model_validate(data), needs_review
+    return None
 
 
 async def process_conversation_answer(
@@ -131,78 +106,164 @@ async def process_conversation_answer(
     knowledge: str = "",
     conversation_history: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    safe_transcript = redact_sensitive_secrets(transcript.strip())
+    lang = "en" if language == "auto" else language
+    safe = redact_sensitive_secrets(transcript.strip())
 
-    if not safe_transcript:
+    if not safe:
         raise ValueError("Transcript cannot be empty.")
 
-    sensitive_disclosure = contains_sensitive_disclosure(transcript)
+    sensitive = contains_sensitive_disclosure(transcript)
 
-    result = await generate_turn(
-        transcript=safe_transcript,
-        language=language,
-        current_field=current_field,
-        report=report.model_dump(),
-        knowledge=knowledge,
-        conversation_history=conversation_history,
-    )
+    data = report.model_dump()
+    attempts = {k: int(v) for k, v in (data.get("field_attempts") or {}).items()}
+    skipped = set(data.get("skipped_fields") or [])
+    asked = current_field if current_field in REPORT_FIELDS else None
 
-    updated_report, invalid_fields = update_report_from_extraction(
-        report,
-        result["extracted"],
-    )
+    if asked == "fraud_type":
+        attempts.setdefault("fraud_type", 1)  # the opening line asked it
 
-    missing_fields = get_missing_fields(updated_report)
-    next_item = get_next_question(updated_report)
+    extracted: dict[str, Any] = {}
+    skip_now: list[str] = []
+    reaction = question_llm = ""
+    off_topic = False
+    alert = None
+    needs_review = sensitive
+    model = None
+    path = "secret" if sensitive else "fast"
 
-    needs_review = (
-        result["needs_review"]
-        or sensitive_disclosure
-        or bool(invalid_fields)
-    )
+    fast = None if sensitive else _fast_path(asked, safe, lang)
 
-    # The model's response is now the default. Do not replace it with
-    # a fixed questionnaire prompt after every user answer.
-    spoken_response = redact_sensitive_secrets(
-        result["response"].strip()
-    )
-
-    if sensitive_disclosure:
-        spoken_response = (
-            "Please don't share secret codes or PINs with me. "
-            "I won't include the secret in your report. "
-            "Have you already contacted your bank through an official channel?"
+    if fast:
+        extracted, skip_now = fast
+    elif not sensitive:
+        path = "llm"
+        remaining = [
+            f for f in FIELD_ORDER
+            if f not in skipped and is_missing_value(f, data.get(f))
+        ]
+        result = await generate_turn(
+            transcript=safe,
+            language=lang,
+            asked_field=asked,
+            report=data,
+            history=conversation_history,
+            remaining=remaining,
+            compose_question=lang not in TEMPLATE_LANGS,
         )
-        action = "clarify"
+        extracted = result["extracted"]
+        skip_now = result["skipped"]
+        reaction = result["reaction"]
+        question_llm = result["question"]
+        off_topic = result["off_topic"]
+        alert = result["alert"]
+        needs_review = needs_review or result["needs_review"]
+        model = result["model"]
 
-    elif invalid_fields:
-        spoken_response = (
-            "I may not have captured one of those details correctly. "
-            "Let's check it before we continue."
-        )
-        action = "clarify"
+    def build(spoken: str, action: str, next_field: str | None, invalid: list[str]):
+        data["skipped_fields"] = sorted(skipped)
+        data["field_attempts"] = attempts
+        updated = FraudReport.model_validate(data)
 
-    elif missing_fields:
-        # Keep the model's empathetic acknowledgement and contextual
-        # follow-up question instead of repeating a hardcoded question.
-        action = "ask"
+        return {
+            "report": updated,
+            "response": redact_sensitive_secrets(spoken.strip()),
+            "action": action,
+            "current_field": next_field,
+            "needs_review": needs_review or bool(invalid),
+            "review_fields": sorted(set(invalid)),
+            "summary": build_report_summary(updated),
+            "transcript": safe,
+            "model": model,
+            "language": lang,
+            "path": path,
+        }
 
+    if alert:
+        attempts["_offtopic"] = 0
+        return build(pick(ALERT[alert], lang), "handoff", asked, [])
+
+    strikes = attempts.get("_offtopic", 0) + 1 if off_topic else 0
+    attempts["_offtopic"] = strikes
+
+    if off_topic:
+        extracted, skip_now = {}, []
+
+    # Merge what was understood, each value in its fixed format.
+    invalid: list[str] = []
+    changed = False
+
+    for field in FIELD_ORDER:
+        value = extracted.get(field)
+
+        if value is None:
+            continue
+        if field not in YES_NO and P.is_placeholder(value):
+            continue
+
+        normalized = P.normalize_field(field, value)
+
+        if normalized is None:
+            invalid.append(field)
+            continue
+
+        changed = changed or data.get(field) != normalized
+        data[field] = normalized
+
+    for field in skip_now:
+        if field in REPORT_FIELDS and is_missing_value(field, data.get(field)):
+            skipped.add(field)
+
+    # Give up on a field after two asks.
+    if (
+        asked
+        and not off_topic
+        and not sensitive
+        and is_missing_value(asked, data.get(asked))
+        and attempts.get(asked, 0) >= MAX_ASKS
+    ):
+        skipped.add(asked)
+
+    skipped = {f for f in skipped if is_missing_value(f, data.get(f))}
+
+    if changed or skip_now:
+        data["confirmed_by_user"] = False
+        data["consent_to_save"] = False
+
+    if off_topic and strikes >= 3:
+        return build(pick(HANDOFF, lang), "handoff", asked, [])
+
+    to_ask = [
+        f for f in FIELD_ORDER
+        if f not in skipped and is_missing_value(f, data.get(f))
+    ]
+
+    if not to_ask:
+        return build(pick(WRAPUP, lang), "confirm", None, invalid)
+
+    nxt = to_ask[0]
+    counted = not (off_topic or sensitive)
+    used = attempts.get(nxt, 0)
+    variant = 1 if (used >= 1 and counted) or used >= MAX_ASKS else 0
+
+    if counted:
+        attempts[nxt] = used + 1
+
+    if lang in TEMPLATE_LANGS:
+        question = QUESTION_TEXT[nxt][lang][variant]
     else:
-        # The model can still give a natural final transition. The UI
-        # should show the collected report for user review and confirmation.
-        action = "confirm"
+        question = question_llm or QUESTION_TEXT[nxt]["en"][variant]
 
-    return {
-        "report": updated_report,
-        "response": spoken_response,
-        "action": action,
-        "current_field": next_item["field"] if next_item else None,
-        "needs_review": needs_review,
-        "review_fields": sorted(set(invalid_fields)),
-        "summary": build_report_summary(updated_report),
-        "transcript": safe_transcript,
-        "model": result.get("model"),
-    }
+    lead = ""
+    if sensitive:
+        lead = pick(SECRET_NOTICE, lang)
+    elif off_topic:
+        lead = pick(REDIRECT, lang)
+    elif asked in invalid:
+        lead = pick(SORRY, lang)
+    elif reaction:
+        lead = reaction
+
+    return build(f"{lead} {question}".strip(), "ask", nxt, invalid)
 
 
 def build_report_summary(report: FraudReport) -> dict:

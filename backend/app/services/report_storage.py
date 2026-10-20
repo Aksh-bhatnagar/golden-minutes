@@ -77,33 +77,18 @@ def _build_pdf(report: FraudReport, pdf_path: Path, reference: str) -> None:
         author="Golden 15",
     )
 
-    labels = {
-        "fraud_type": "Fraud type",
-        "bank_or_payment_app": "Bank or payment app",
-        "amount_inr": "Reported amount (INR)",
-        "transaction_reference": "Transaction reference",
-        "incident_date": "Incident date",
-        "incident_time": "Incident time",
-        "registered_phone_last4": "Registered phone (last 4 digits)",
-        "otp_or_pin_shared": "OTP or PIN shared",
-        "contacted_bank": "Bank contacted",
-    }
+    from app.services.formatting import PDF_LABELS, display_report
 
-    data = report.model_dump()
+    shown = display_report(report.model_dump())
     rows = [[
         Paragraph("<b>Field</b>", styles["BodyText"]),
         Paragraph("<b>Reported information</b>", styles["BodyText"]),
     ]]
 
-    for field, label in labels.items():
-        value = data.get(field)
-
-        if field == "amount_inr" and value is not None:
-            value = f"INR {value:,.2f}"
-
+    for field, label in PDF_LABELS.items():
         rows.append([
             Paragraph(_safe_text(label), styles["BodyText"]),
-            Paragraph(_safe_text(value), styles["BodyText"]),
+            Paragraph(_safe_text(shown[field]), styles["BodyText"]),
         ])
 
     table = Table(rows, colWidths=[57 * mm, 112 * mm], repeatRows=1)

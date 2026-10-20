@@ -11,8 +11,11 @@ export interface FraudReport {
   otp_or_pin_shared: YesNoUnknown | null;
   contacted_bank: YesNoUnknown | null;
   missing_fields: string[];
+  skipped_fields: string[];
   confirmed_by_user: boolean;
   consent_to_save: boolean;
+  caller_name: string | null;
+  field_attempts: Record<string, number>;
 }
 
 export interface ConversationTurnResponse {
@@ -24,6 +27,7 @@ export interface ConversationTurnResponse {
   review_fields: string[];
   summary: unknown;
   model: string;
+  language?: "en" | "hi" | "hinglish";
 }
 
 export interface WorkflowCredentials {
@@ -49,7 +53,10 @@ export function createEmptyReport(): FraudReport {
     otp_or_pin_shared: null,
     contacted_bank: null,
     missing_fields: [],
+    skipped_fields: [],
     confirmed_by_user: false,
     consent_to_save: false,
+    caller_name: null,
+    field_attempts: {},
   };
 }

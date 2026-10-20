@@ -1,0 +1,28 @@
+{
+  "workflow_id": "g15draft_UySuH79rsGXBW9Bxx5ub2JPt",
+  "access_token_hash": "c6f49fb26370abd75ba869c99a79c3a743a4bcacf93827dccb633e3d1bf30936",
+  "status": "saved",
+  "report": {
+    "fraud_type": "my money went from my bank",
+    "bank_or_payment_app": "SBI Bank",
+    "amount_inr": 100000.0,
+    "transaction_reference": "1234567891011",
+    "incident_date": "20th October 2026",
+    "incident_time": "9:15 pm",
+    "registered_phone_last4": "9425",
+    "otp_or_pin_shared": "yes",
+    "contacted_bank": "yes",
+    "missing_fields": [],
+    "skipped_fields": [],
+    "confirmed_by_user": true,
+    "consent_to_save": true
+  },
+  "user_confirmed": true,
+  "consent_granted": true,
+  "reference": "G15-2AC0F6FC",
+  "review_completed": true,
+  "created_at": "2026-10-20T03:46:15.647545+00:00",
+  "updated_at": "2026-10-20T03:46:29.871551+00:00",
+  "review_mode": "all",
+  "review_field": null
+}

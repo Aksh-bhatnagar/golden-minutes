@@ -13,12 +13,13 @@ interface Props {
 }
 
 const FIELDS: [keyof FraudReport, string, string?][] = [
+  ["caller_name", "Your name (optional)"],
   ["fraud_type", "What happened"],
   ["bank_or_payment_app", "Bank or payment app"],
   ["amount_inr", "Amount lost (₹)", "number"],
   ["transaction_reference", "Transaction ID"],
-  ["incident_date", "Date"],
-  ["incident_time", "Time"],
+  ["incident_date", "Date", "date"],
+  ["incident_time", "Time", "time"],
   ["registered_phone_last4", "Registered phone, last 4 digits", "tel"],
 ];
 
@@ -48,7 +49,7 @@ export default function ReportReview({
   };
 
   const missing = FIELDS.filter(
-    ([k]) => d[k] === null || d[k] === "",
+    ([k]) => k !== "caller_name" && (d[k] === null || d[k] === ""),
   ).map((f) => f[1]);
 
   async function run(

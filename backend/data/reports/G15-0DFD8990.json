@@ -1,0 +1,32 @@
+{
+  "reference": "G15-0DFD8990",
+  "created_at": "2026-10-20T11:39:20.075720+00:00",
+  "pdf_filename": "G15-0DFD8990.pdf",
+  "report": {
+    "caller_name": "Akshay",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "एस बी आई बैंक और फ़ोन पे",
+    "amount_inr": 250000.0,
+    "transaction_reference": "12345678910",
+    "incident_date": "2026-10-21",
+    "incident_time": "05:07",
+    "registered_phone_last4": "2456",
+    "otp_or_pin_shared": "unknown",
+    "contacted_bank": "unknown",
+    "missing_fields": [],
+    "skipped_fields": [],
+    "field_attempts": {
+      "fraud_type": 1,
+      "_offtopic": 0,
+      "bank_or_payment_app": 1,
+      "amount_inr": 1,
+      "transaction_reference": 1,
+      "incident_date": 2,
+      "incident_time": 1,
+      "registered_phone_last4": 1,
+      "caller_name": 1
+    },
+    "confirmed_by_user": false,
+    "consent_to_save": false
+  }
+}

@@ -6,7 +6,8 @@ from fastapi.concurrency import run_in_threadpool
 from gnani.stt import APIError, GnaniSTTClient
 
 
-LANGUAGE_CODES = {
+LANGUAGE_CODES = { 
+    "auto": "en-IN",
     "en": "en-IN",
     "hi": "hi-IN",
     # Use Indian English as the initial Hinglish recognition setting.

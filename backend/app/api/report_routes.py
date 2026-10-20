@@ -200,8 +200,8 @@ def save_draft_report(
             "status": "saved",
             "reference": workflow_result["reference"],
             "message": (
-                "Your report has been saved. Keep this reference for "
-                "authorized retrieval. It is not an official complaint number."
+                "Your report was sent to the case handler desk (prototype). This is not an Your report was sent to the case handler desk (prototype)."
+                "This is not an official complaint number. In a real emergency, call <b>1930</b>."
             ),
         }
     except Exception as exc:
