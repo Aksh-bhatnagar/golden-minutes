@@ -37,7 +37,7 @@ def root():
     return {
         "application": APP_NAME,
         "version": APP_VERSION,
-        "message": "Golden 15 backend is ready",
+        "message": "Golden minutes  backend is ready",
     }
 
 # .\venv\Scripts\Activate.ps1

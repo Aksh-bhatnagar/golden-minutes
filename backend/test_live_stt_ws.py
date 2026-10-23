@@ -7,7 +7,7 @@ import websockets
 async def main():
     url = "ws://127.0.0.1:8000/api/stt/stream?language=en"
 
-    print("Connecting to Golden 15 WebSocket...")
+    print("Connecting to Golden minutes WebSocket...")
 
     try:
         async with websockets.connect(url) as ws:

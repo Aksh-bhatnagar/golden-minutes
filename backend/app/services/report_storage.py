@@ -73,8 +73,8 @@ def _build_pdf(report: FraudReport, pdf_path: Path, reference: str) -> None:
         leftMargin=18 * mm,
         topMargin=18 * mm,
         bottomMargin=18 * mm,
-        title=f"Golden 15 Report {reference}",
-        author="Golden 15",
+        title=f"Golden minutes Report {reference}",
+        author="Golden minutes",
     )
 
     from app.services.formatting import PDF_LABELS, display_report
@@ -106,7 +106,7 @@ def _build_pdf(report: FraudReport, pdf_path: Path, reference: str) -> None:
     )
 
     story = [
-        Paragraph("Golden 15 — Fraud Incident Report", styles["ReportTitle"]),
+        Paragraph("Golden minutes — Fraud Incident Report", styles["ReportTitle"]),
         Paragraph(f"<b>Reference:</b> {_safe_text(reference)}", styles["BodyText"]),
         Paragraph(
             f"<b>Created (UTC):</b> "

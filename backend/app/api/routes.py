@@ -25,7 +25,7 @@ from app.services.conversation import (
 from app.services.llm import redact_sensitive_secrets
 from app.core.timing import log
 
-router = APIRouter(prefix="/api", tags=["Golden 15"])
+router = APIRouter(prefix="/api", tags=["Golden minutes"])
 
 FRAME_BYTES = 1024
 

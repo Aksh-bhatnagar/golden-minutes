@@ -187,6 +187,13 @@ async def process_conversation_answer(
 
     if off_topic:
         extracted, skip_now = {}, []
+    
+    # Only the field just asked can be skipped, and only if the caller really said so.
+    skip_now = [
+        f for f in skip_now
+        if f == asked and f != "fraud_type"
+        and (lang not in TEMPLATE_LANGS or P.is_dont_know(safe))
+    ]
 
     # Merge what was understood, each value in its fixed format.
     invalid: list[str] = []
@@ -196,6 +203,8 @@ async def process_conversation_answer(
         value = extracted.get(field)
 
         if value is None:
+            continue
+        if field in YES_NO and value == "unknown" and field != asked:
             continue
         if field not in YES_NO and P.is_placeholder(value):
             continue

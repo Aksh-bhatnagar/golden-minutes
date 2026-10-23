@@ -110,7 +110,7 @@ async def run_test():
             print(f"[RECEIVE ERROR] {exc}", flush=True)
 
     print("=" * 55)
-    print("GOLDEN 15 — LIVE MICROPHONE STT TEST")
+    print("GOLDEN minutes — LIVE MICROPHONE STT TEST")
     print("=" * 55)
     print(f"WebSocket: {WS_URL}")
     print(f"Sample rate: {SAMPLE_RATE} Hz")
