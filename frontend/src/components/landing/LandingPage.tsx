@@ -26,14 +26,15 @@ export default function LandingPage({
   const more = LANGUAGES.length > 3 ? " and more" : "";
 
   return (
-    <main className="mx-auto flex min-h-[calc(100svh-80px)] max-w-6xl flex-col items-center justify-center px-6 pb-16 text-center">
+    <main className="mx-auto flex min-h-[calc(100svh-80px)] w-full max-w-7xl flex-col items-center justify-center px-4 sm:px-12 pb- text-center">
       <VoiceOrb state="idle" size={orbSize} />
       <span className="mt-1 inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-3 py-1 text-xs font-medium text-mute">
         <span className="size-1.5 rounded-full bg-emerald-500" /> Ready to listen
       </span>
 
 {/* Changed text-4xl to text-3xl so longer regional languages fit the screen width */}
-<h1 className="mt-8 min-h-[3em] sm:min-h-[2.6em] flex flex-col justify-center text-3xl sm:text-6xl font-medium leading-tight tracking-tight">
+{/* Added w-full, widened padding, and adjusted max text size to 54px */}
+<h1 className="mt-8 w-full min-h-[3.2em] sm:min-h-[2.6em] flex flex-col justify-center px-2 text-[28px] sm:text-5xl lg:text-[54px] font-medium leading-tight tracking-tight">
   <TypewriterHeadline />
 </h1>
 
