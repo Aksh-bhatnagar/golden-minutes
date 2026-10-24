@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, Mic, X } from "lucide-react";
 import VoiceOrb from "@/components/voice/VoiceOrb";
+import TypewriterHeadline from "@/components/landing/TypewriterHeadline";
 import { LANGUAGES } from "@/lib/languages";
 import type { SupportedLanguage } from "@/types/conversation";
 
@@ -12,6 +13,7 @@ export default function LandingPage({
   onOpenHandler: () => void;
 }) {
   const [picking, setPicking] = useState(false);
+  const [orbSize] = useState(() => (window.innerWidth >= 1024 ? 340 : 260));
 
   useEffect(() => {
     if (!picking) return;
@@ -20,29 +22,39 @@ export default function LandingPage({
     return () => window.removeEventListener("keydown", onKey);
   }, [picking]);
 
+  const names = LANGUAGES.slice(0, 3).map((l) => l.native).join(", ");
+  const more = LANGUAGES.length > 3 ? " and more" : "";
+
   return (
-    <main className="mx-auto flex min-h-[calc(100svh-80px)] max-w-3xl flex-col items-center justify-center px-6 pb-16 text-center">
-      <VoiceOrb state="idle" size={280} />
-      <span className="mt-1 rounded-full border border-line bg-white/80 px-3 py-1 text-xs font-medium">
-        <span className="grad-text">&lt;ready to listen&gt;</span>
+    <main className="mx-auto flex min-h-[calc(100svh-80px)] max-w-6xl flex-col items-center justify-center px-6 pb-16 text-center">
+      <VoiceOrb state="idle" size={orbSize} />
+      <span className="mt-1 inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-3 py-1 text-xs font-medium text-mute">
+        <span className="size-1.5 rounded-full bg-emerald-500" /> Ready to listen
       </span>
 
-      <h1 className="mt-8 text-4xl font-medium leading-tight tracking-tight sm:text-6xl">
-        When money goes missing,
-        <br />
-        <span className="grad-text">start by talking.</span>
-      </h1>
+{/* Changed text-4xl to text-3xl so longer regional languages fit the screen width */}
+<h1 className="mt-8 min-h-[3em] sm:min-h-[2.6em] flex flex-col justify-center text-3xl sm:text-6xl font-medium leading-tight tracking-tight">
+  <TypewriterHeadline />
+</h1>
 
-      <p className="mt-5 max-w-lg text-base leading-7 text-mute">
-        Golden Minutes takes your report the way a helpline operator would. Just talk,
-        and your details go straight to the case handler.
+      <p className="mt-5 max-w-xl text-base leading-7 text-mute">
+        Tell Golden Minutes what happened, in your own language. It asks the right
+        questions and prepares a clear summary for you.
       </p>
 
       <button onClick={() => setPicking(true)} className="btn-dark mt-9">
-        Talk to Golden Minutes <ArrowRight size={17} />
+        <Mic size={17} /> Start a conversation <ArrowRight size={17} />
       </button>
+      <p className="mt-4 text-xs text-mute">Available in {names}{more}</p>
 
-      <p className="mt-14 max-w-md text-xs leading-5 text-mute/80">
+      <p className="mt-10 text-xs text-mute">
+        Urgent? Call <b className="text-[#e8684a]">1930</b> or visit{" "}
+        <a href="https://cybercrime.gov.in/" target="_blank" rel="noreferrer"
+           className="font-medium text-[#e8684a] underline underline-offset-4">
+          cybercrime.gov.in
+        </a>
+      </p>
+      <p className="mt-3 max-w-md text-xs leading-5 text-mute/80">
         Golden Minutes is an AI prototype. It is not the police, a bank, or the official
         helpline, and it does not file complaints.
       </p>

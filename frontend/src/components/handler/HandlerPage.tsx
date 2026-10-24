@@ -139,7 +139,7 @@ export default function HandlerPage({ onExit }: { onExit: () => void }) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-5 pb-12 pt-2">
+    <main className="mx-auto w-full max-w-6xl px-5 pb-12 pt-2">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold tracking-widest text-violet">HANDLER CONSOLE · DEMO</p>

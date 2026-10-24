@@ -38,8 +38,8 @@ export default function LiveCaptions({
     : (last?.text ?? "Connecting…");
 
   return (
-    <section className="w-full max-w-xl text-center" aria-live="polite">
-      <p className="min-h-[3.5rem] text-xl font-medium leading-relaxed tracking-tight sm:text-2xl">
+    <section className="w-full max-w-3xl text-center" aria-live="polite">
+      <p className="min-h-[3.5rem] text-xl font-medium leading-relaxed tracking-tight sm:text-3xl">
         {text}
       </p>
       {currentTranscript.trim() && (

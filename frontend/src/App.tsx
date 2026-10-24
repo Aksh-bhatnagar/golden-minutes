@@ -14,7 +14,7 @@ export default function App() {
   const [language, setLanguage] = useState<SupportedLanguage>("en");
 
   return (
-    <div className="min-h-screen bg-paper text-ink">
+    <div className="relative w-full min-h-screen overflow-x-hidden bg-paper text-ink">
       <div className="glow" />
       <div className="relative z-10">
         <AppHeader />

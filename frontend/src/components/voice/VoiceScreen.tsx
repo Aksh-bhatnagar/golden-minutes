@@ -47,6 +47,7 @@ export default function VoiceScreen({
 
   const [screen, setScreen] = useState<ScreenMode>("conversation");
   const [sessionStopped, setSessionStopped] = useState(false);
+  const [orbSize] = useState(() => (window.innerWidth >= 768 ? 320 : 260));
 
   const {
     start: startVoiceSession,
@@ -196,7 +197,7 @@ export default function VoiceScreen({
   const blocked = ["connecting", "ended", "error"].includes(status);
 
   return (
-    <main className="mx-auto flex min-h-[calc(100svh-80px)] w-full max-w-3xl flex-col px-6 pb-6">
+    <main className="mx-auto flex min-h-[calc(100svh-80px)] w-full max-w-6xl flex-col px-6 pb-6">
       <div className="flex items-center justify-between">
         <button onClick={handleEndCall} className="btn-light !min-h-10 !px-4">
           <ArrowLeft size={16} /> Back
@@ -207,7 +208,7 @@ export default function VoiceScreen({
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center py-6">
-        <VoiceOrb state={status} size={300} />
+        <VoiceOrb state={status} size={orbSize} />
         <p
           className="mt-2 rounded-full border border-line bg-white/80 px-3 py-1 text-xs font-medium text-mute"
           aria-live="polite"
@@ -225,7 +226,7 @@ export default function VoiceScreen({
           </div>
         )}
 
-        <div className="mt-8 w-full max-w-xl">
+        <div className="mt-8 w-full max-w-3xl">
           <LiveCaptions
             captions={captions}
             currentTranscript={currentTranscript}
