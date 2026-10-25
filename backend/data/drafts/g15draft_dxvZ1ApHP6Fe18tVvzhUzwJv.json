@@ -1,0 +1,44 @@
+{
+  "workflow_id": "g15draft_dxvZ1ApHP6Fe18tVvzhUzwJv",
+  "access_token_hash": "c3a20dbcfdc810ed9338f30269a3c72b56ca32c5571d9b3edc267cbd262b859f",
+  "status": "declined",
+  "report": {
+    "caller_name": "Rahul",
+    "fraud_type": "Money deducted from bank account",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": 450.0,
+    "transaction_reference": "323242425252",
+    "incident_date": "2022-10-03",
+    "incident_time": "17:30",
+    "registered_phone_last4": "4545",
+    "otp_or_pin_shared": "no",
+    "contacted_bank": "yes",
+    "missing_fields": [],
+    "skipped_fields": [
+      "registered_phone_last4"
+    ],
+    "field_attempts": {
+      "fraud_type": 1,
+      "_offtopic": 0,
+      "bank_or_payment_app": 1,
+      "amount_inr": 1,
+      "transaction_reference": 1,
+      "incident_date": 1,
+      "incident_time": 2,
+      "registered_phone_last4": 2,
+      "otp_or_pin_shared": 1,
+      "contacted_bank": 1,
+      "caller_name": 1
+    },
+    "confirmed_by_user": true,
+    "consent_to_save": false
+  },
+  "user_confirmed": true,
+  "consent_granted": false,
+  "reference": null,
+  "review_completed": true,
+  "created_at": "2026-10-25T01:38:17.266756+00:00",
+  "updated_at": "2026-10-25T01:38:37.969290+00:00",
+  "review_mode": "all",
+  "review_field": null
+}

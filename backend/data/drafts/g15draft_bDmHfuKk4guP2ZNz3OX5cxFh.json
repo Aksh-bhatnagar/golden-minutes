@@ -1,0 +1,42 @@
+{
+  "workflow_id": "g15draft_bDmHfuKk4guP2ZNz3OX5cxFh",
+  "access_token_hash": "e6d4a7bf91ee59e8e42e4029245d2313e1e3925a442530ac1700aca35d3f7ff6",
+  "status": "saved",
+  "report": {
+    "caller_name": "Aksh",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": 200000.0,
+    "transaction_reference": "12345691",
+    "incident_date": "2026-10-21",
+    "incident_time": "17:21",
+    "registered_phone_last4": "2443",
+    "otp_or_pin_shared": "no",
+    "contacted_bank": "yes",
+    "missing_fields": [],
+    "skipped_fields": [],
+    "field_attempts": {
+      "fraud_type": 1,
+      "_offtopic": 0,
+      "bank_or_payment_app": 1,
+      "amount_inr": 1,
+      "transaction_reference": 1,
+      "incident_date": 1,
+      "incident_time": 1,
+      "registered_phone_last4": 1,
+      "otp_or_pin_shared": 1,
+      "contacted_bank": 1,
+      "caller_name": 1
+    },
+    "confirmed_by_user": true,
+    "consent_to_save": true
+  },
+  "user_confirmed": true,
+  "consent_granted": true,
+  "reference": "G15-122978D0",
+  "review_completed": true,
+  "created_at": "2026-10-25T01:22:06.559229+00:00",
+  "updated_at": "2026-10-25T01:22:28.335095+00:00",
+  "review_mode": "all",
+  "review_field": null
+}

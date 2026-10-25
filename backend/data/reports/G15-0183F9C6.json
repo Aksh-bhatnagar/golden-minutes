@@ -30,5 +30,19 @@
     },
     "confirmed_by_user": false,
     "consent_to_save": false
-  }
+  },
+  "status": "resolved",
+  "display": {
+    "caller_name": "Rahul",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": "INR 5,00,000",
+    "transaction_reference": "12345678910",
+    "incident_date": "21 Oct 2026",
+    "incident_time": "5:06 PM",
+    "registered_phone_last4": "9424",
+    "otp_or_pin_shared": "Not sure",
+    "contacted_bank": "Not sure"
+  },
+  "status_updated_at": "2026-10-25T01:25:14.451707+00:00"
 }

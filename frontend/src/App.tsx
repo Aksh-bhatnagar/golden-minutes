@@ -16,6 +16,16 @@ export default function App() {
   return (
     <div className="relative w-full min-h-screen overflow-x-hidden bg-paper text-ink">
       <div className="glow" />
+      
+      {/* 
+        New: Subtle bottom ambient glow
+        pointer-events-none ensures it doesn't block clicks on footer links 
+      */}
+      <div 
+        className="pointer-events-none fixed -bottom-32 left-0 right-0 z-0 h-64 bg-gradient-to-r from-orange-400 via-pink-400 to-indigo-500 opacity-20 blur-[80px]" 
+        aria-hidden="true" 
+      />
+
       <div className="relative z-10">
         <AppHeader />
         {screen === "landing" && (

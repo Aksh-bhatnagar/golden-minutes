@@ -22,7 +22,6 @@ export default function LiveCaptions({
 
     setShown(1);
     const tick = () => {
-      // Reveal slightly ahead of the audio so the text never lags the voice.
       setShown(Math.max(1, Math.ceil(getProgress() * total * 1.08)));
       raf = requestAnimationFrame(tick);
     };
@@ -32,22 +31,30 @@ export default function LiveCaptions({
   }, [speakingText, getProgress]);
 
   const last = [...captions].reverse().find((c) => c.speaker === "assistant");
-
   const text = speakingText
     ? speakingText.split(/\s+/).filter(Boolean).slice(0, shown).join(" ")
     : (last?.text ?? "Connecting…");
 
   return (
-    <section className="w-full max-w-3xl text-center" aria-live="polite">
-      <p className="min-h-[3.5rem] text-xl font-medium leading-relaxed tracking-tight sm:text-3xl">
-        {text}
-      </p>
-      {currentTranscript.trim() && (
-        <p className="mt-5 rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm leading-6 text-mute">
-          <span className="mr-2 text-[10px] font-semibold tracking-widest text-violet">YOU</span>
-          {currentTranscript}
+    // Fixed minimum height prevents layout shifting when text wraps
+    <section className="flex w-full max-w-3xl flex-col items-center justify-end min-h-[180px] text-center" aria-live="polite">
+      
+      <div className="flex w-full flex-1 flex-col justify-center">
+        <p className="text-xl font-medium leading-relaxed tracking-tight sm:text-3xl transition-all duration-300">
+          {text}
         </p>
-      )}
+      </div>
+
+      {/* Reserved fixed-height container for the user transcript so it doesn't push UI up when it appears */}
+      <div className="mt-4 flex h-[60px] w-full items-center justify-center">
+        {currentTranscript.trim() && (
+          <p className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-line bg-white/70 px-4 py-2 text-sm leading-6 text-mute shadow-sm backdrop-blur-sm">
+            <span className="mr-2 text-[10px] font-semibold tracking-widest text-violet">YOU</span>
+            {currentTranscript}
+          </p>
+        )}
+      </div>
+
     </section>
   );
 }

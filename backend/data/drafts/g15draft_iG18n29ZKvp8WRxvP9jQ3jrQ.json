@@ -1,0 +1,41 @@
+{
+  "workflow_id": "g15draft_iG18n29ZKvp8WRxvP9jQ3jrQ",
+  "access_token_hash": "9b77fc3f230b03c671e43a37081a155bda7eba3e65917c1307d9c7f8dcf69779",
+  "status": "reviewing",
+  "report": {
+    "caller_name": "Aksh Bhatnagar",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": 500500.0,
+    "transaction_reference": "12345678910",
+    "incident_date": "2026-10-22",
+    "incident_time": "17:35",
+    "registered_phone_last4": "1294",
+    "otp_or_pin_shared": "no",
+    "contacted_bank": "yes",
+    "missing_fields": [],
+    "skipped_fields": [],
+    "field_attempts": {
+      "fraud_type": 1,
+      "_offtopic": 0,
+      "bank_or_payment_app": 1,
+      "amount_inr": 1,
+      "transaction_reference": 1,
+      "incident_date": 1,
+      "incident_time": 1,
+      "registered_phone_last4": 1,
+      "otp_or_pin_shared": 1,
+      "contacted_bank": 1
+    },
+    "confirmed_by_user": false,
+    "consent_to_save": false
+  },
+  "user_confirmed": false,
+  "consent_granted": false,
+  "reference": null,
+  "review_completed": true,
+  "created_at": "2026-10-25T01:13:41.320002+00:00",
+  "updated_at": "2026-10-25T01:14:17.933190+00:00",
+  "review_mode": "all",
+  "review_field": null
+}
