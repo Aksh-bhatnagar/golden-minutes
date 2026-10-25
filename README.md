@@ -2,8 +2,6 @@
 
 **A multilingual, interruptible voice assistant that takes cyber-fraud reports by voice and hands the 1930 helpline a ready PDF.**
 
-Built for the Gnani.ai Great Indian AI Internship Challenge.
-
 ---
 
 ## The Problem
