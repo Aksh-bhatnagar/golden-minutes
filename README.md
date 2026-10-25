@@ -132,4 +132,5 @@ This is a prototype built for a challenge. It is not an official product of the 
 
 ## Author
 
-aksh bhatnagar
+aksh bhatnagar & riskika rajput
+
