@@ -49,26 +49,12 @@ If the user interrupts while the assistant is speaking, the running TTS and LLM 
 | Speech | Gnani STT and TTS |
 | Frontend | React, Vite, Tailwind CSS |
 
-## Project Structure
-
-```
-TODO: paste your folder tree here, for example:
-backend/
-  main.py
-  conversation.py        # dialogue controller
-  eval_extraction.py     # evaluation harness
-frontend/
-  src/components/        # LandingPage, VoiceScreen, VoiceOrb, LiveCaptions,
-                         # ReportConsent, FieldCard, ReportReview, ReportSaved,
-                         # HandlerPage, AppHeader, VoiceControls
-```
-
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.x (TODO: version)
-- Node.js 18+ (TODO: confirm)
+- Python 3.10
+- Node.js 18+
 - A Groq API key
 - Gnani API credentials for STT and TTS
 
@@ -146,4 +132,4 @@ This is a prototype built for a challenge. It is not an official product of the 
 
 ## Author
 
-TODO: your name, LinkedIn and GitHub
+aksh bhatnagar
