@@ -1,0 +1,42 @@
+{
+  "workflow_id": "g15draft_O6HF_WlLZWTT93E1ZUxxkhhq",
+  "access_token_hash": "befb7d37d9aa6bfb38fec6197da2322bab26a4c646a1b1e562c7381b0f055aad",
+  "status": "saved",
+  "report": {
+    "caller_name": "Rahul",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": 5000.0,
+    "transaction_reference": "1234569212",
+    "incident_date": "2026-10-21",
+    "incident_time": "17:06",
+    "registered_phone_last4": "2424",
+    "otp_or_pin_shared": "no",
+    "contacted_bank": "yes",
+    "missing_fields": [],
+    "skipped_fields": [],
+    "field_attempts": {
+      "fraud_type": 1,
+      "_offtopic": 0,
+      "bank_or_payment_app": 1,
+      "amount_inr": 1,
+      "transaction_reference": 1,
+      "incident_date": 1,
+      "incident_time": 1,
+      "registered_phone_last4": 1,
+      "otp_or_pin_shared": 1,
+      "contacted_bank": 1,
+      "caller_name": 1
+    },
+    "confirmed_by_user": true,
+    "consent_to_save": true
+  },
+  "user_confirmed": true,
+  "consent_granted": true,
+  "reference": "G15-05BF2844",
+  "review_completed": true,
+  "created_at": "2026-10-25T04:26:50.496191+00:00",
+  "updated_at": "2026-10-25T04:27:32.726907+00:00",
+  "review_mode": "all",
+  "review_field": null
+}

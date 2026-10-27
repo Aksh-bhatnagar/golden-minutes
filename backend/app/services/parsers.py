@@ -95,6 +95,10 @@ def parse_amount(text: str) -> float | None:
     t = text.translate(_DEVA_DIGITS).lower().replace("₹", " ")
     t = re.sub(r"(?<=\d),(?=\d)", "", t)
 
+    # "4 se 5", "5 to 6": a range is not one amount, let the model or the review screen decide.
+    if re.search(r"\d\s*(?:से|to|या|ya|or|-|–)\s*\d", t):
+        return None
+
     m = re.search(r"\d+(?:\.\d+)?", t)
     if not m:
         return None

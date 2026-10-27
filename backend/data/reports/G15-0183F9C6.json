@@ -31,7 +31,7 @@
     "confirmed_by_user": false,
     "consent_to_save": false
   },
-  "status": "resolved",
+  "status": "new",
   "display": {
     "caller_name": "Rahul",
     "fraud_type": "Money debited from bank account without the caller's knowledge",
@@ -44,5 +44,5 @@
     "otp_or_pin_shared": "Not sure",
     "contacted_bank": "Not sure"
   },
-  "status_updated_at": "2026-10-25T01:25:14.451707+00:00"
+  "status_updated_at": "2026-10-25T15:34:53.893340+00:00"
 }

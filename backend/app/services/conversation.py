@@ -131,6 +131,33 @@ async def process_conversation_answer(
     model = None
     path = "secret" if sensitive else "fast"
 
+    def build(spoken: str, action: str, next_field: str | None, invalid: list[str]):
+        data["skipped_fields"] = sorted(skipped)
+        data["field_attempts"] = attempts
+        updated = FraudReport.model_validate(data)
+
+        return {
+            "report": updated,
+            "response": redact_sensitive_secrets(spoken.strip()),
+            "action": action,
+            "current_field": next_field,
+            "needs_review": needs_review or bool(invalid),
+            "review_fields": sorted(set(invalid)),
+            "summary": build_report_summary(updated),
+            "transcript": safe,
+            "model": model,
+            "language": lang,
+            "path": path,
+        }
+
+    # Everything is already collected: wrap up without calling the model.
+    nothing_left = not [
+        f for f in FIELD_ORDER
+        if f not in skipped and is_missing_value(f, data.get(f))
+    ]
+    if nothing_left and not sensitive:
+        return build(pick(WRAPUP, lang), "confirm", None, [])
+
     fast = None if sensitive else _fast_path(asked, safe, lang)
 
     if fast:
@@ -151,32 +178,21 @@ async def process_conversation_answer(
             compose_question=lang not in TEMPLATE_LANGS,
         )
         extracted = result["extracted"]
-        skip_now = result["skipped"]
+        # The code decides what can be skipped, not the model: only the field
+        # just asked, never the opening one, and in the three template
+        # languages only if the caller clearly said so.
+        skip_now = [
+            f for f in result["skipped"]
+            if f == asked
+            and f != "fraud_type"
+            and (lang not in TEMPLATE_LANGS or P.is_dont_know(safe))
+        ]
         reaction = result["reaction"]
         question_llm = result["question"]
         off_topic = result["off_topic"]
         alert = result["alert"]
         needs_review = needs_review or result["needs_review"]
         model = result["model"]
-
-    def build(spoken: str, action: str, next_field: str | None, invalid: list[str]):
-        data["skipped_fields"] = sorted(skipped)
-        data["field_attempts"] = attempts
-        updated = FraudReport.model_validate(data)
-
-        return {
-            "report": updated,
-            "response": redact_sensitive_secrets(spoken.strip()),
-            "action": action,
-            "current_field": next_field,
-            "needs_review": needs_review or bool(invalid),
-            "review_fields": sorted(set(invalid)),
-            "summary": build_report_summary(updated),
-            "transcript": safe,
-            "model": model,
-            "language": lang,
-            "path": path,
-        }
 
     if alert:
         attempts["_offtopic"] = 0
@@ -187,13 +203,6 @@ async def process_conversation_answer(
 
     if off_topic:
         extracted, skip_now = {}, []
-    
-    # Only the field just asked can be skipped, and only if the caller really said so.
-    skip_now = [
-        f for f in skip_now
-        if f == asked and f != "fraud_type"
-        and (lang not in TEMPLATE_LANGS or P.is_dont_know(safe))
-    ]
 
     # Merge what was understood, each value in its fixed format.
     invalid: list[str] = []
@@ -204,7 +213,9 @@ async def process_conversation_answer(
 
         if value is None:
             continue
-        if field in YES_NO and value == "unknown" and field != asked:
+        # A yes/no counts only when the caller was asked that exact question.
+        # The model must not guess it from an earlier answer.
+        if field in YES_NO and field != asked:
             continue
         if field not in YES_NO and P.is_placeholder(value):
             continue
@@ -262,6 +273,8 @@ async def process_conversation_answer(
     else:
         question = question_llm or QUESTION_TEXT[nxt]["en"][variant]
 
+    # Short replies are faster to speak: the model's kind sentence is kept
+    # only for the caller's first answer, where it matters most.
     lead = ""
     if sensitive:
         lead = pick(SECRET_NOTICE, lang)
@@ -269,7 +282,7 @@ async def process_conversation_answer(
         lead = pick(REDIRECT, lang)
     elif asked in invalid:
         lead = pick(SORRY, lang)
-    elif reaction:
+    elif reaction and asked == "fraud_type":
         lead = reaction
 
     return build(f"{lead} {question}".strip(), "ask", nxt, invalid)

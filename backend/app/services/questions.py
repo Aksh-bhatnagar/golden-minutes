@@ -90,9 +90,9 @@ REDIRECT = {
 }
 
 HANDOFF = {
-    "en": "I can't help further here. Please call 1930, or ask for a human operator.",
-    "hi": "मैं यहाँ इससे आगे मदद नहीं कर सकती। कृपया 1930 पर कॉल कीजिए, या किसी ऑपरेटर से बात कीजिए।",
-    "hinglish": "मैं यहाँ इससे आगे मदद नहीं कर सकती। कृपया 1930 पर call कीजिए, या किसी human operator से बात कीजिए।",
+    "en": "I can't help further here. Please call 1930 for the official helpline.",
+    "hi": "मैं यहाँ इससे आगे मदद नहीं कर सकती। कृपया आधिकारिक हेल्पलाइन 1930 पर कॉल कीजिए।",
+    "hinglish": "मैं यहाँ इससे आगे मदद नहीं कर सकती। कृपया official helpline 1930 पर call कीजिए।",
 }
 
 SORRY = {
@@ -108,21 +108,21 @@ SECRET_NOTICE = {
 }
 
 WRAPUP = {
-    "en": "That's everything the team needs. I'll show your details on screen now, so you can check them and send the report.",
-    "hi": "टीम को जो चाहिए था, वह सब मिल गया है। अब मैं आपकी जानकारी स्क्रीन पर दिखा रही हूँ, आप उसे देखकर रिपोर्ट भेज दीजिए।",
-    "hinglish": "Team को जो चाहिए था, वह सब मिल गया है। अब मैं आपके details screen पर दिखा रही हूँ, आप check करके report भेज दीजिए।",
+    "en": "That's everything I need. I'll show your details on screen now, so you can check and correct them.",
+    "hi": "मुझे जो चाहिए था, वह सब मिल गया है। अब मैं आपकी जानकारी स्क्रीन पर दिखा रही हूँ, आप उसे जाँचकर सुधार सकते हैं।",
+    "hinglish": "मुझे जो चाहिए था, वह सब मिल गया है। अब मैं आपके details screen पर दिखा रही हूँ, आप check करके correct कर सकते हैं।",
 }
 
 ALERT = {
     "danger": {
-        "en": "If you are in immediate danger, please call 112 right now. I can also connect you to a human operator.",
-        "hi": "अगर आप तुरंत ख़तरे में हैं तो अभी 112 पर कॉल कीजिए। मैं आपको किसी ऑपरेटर से भी जोड़ सकती हूँ।",
-        "hinglish": "अगर आप तुरंत danger में हैं तो अभी 112 पर call कीजिए। मैं आपको किसी human operator से भी जोड़ सकती हूँ।",
+        "en": "If you are in immediate danger, please call 112 right now.",
+        "hi": "अगर आप तुरंत ख़तरे में हैं तो अभी 112 पर कॉल कीजिए।",
+        "hinglish": "अगर आप तुरंत danger में हैं तो अभी 112 पर call कीजिए।",
     },
     "no_money_lost": {
-        "en": "This assistant is only for money lost to online fraud. Please visit cybercrime.gov.in, or ask for a human operator.",
-        "hi": "यह असिस्टेंट सिर्फ़ ऑनलाइन धोखाधड़ी में गए पैसों के लिए है। कृपया cybercrime.gov.in देखिए, या किसी ऑपरेटर से बात कीजिए।",
-        "hinglish": "यह assistant सिर्फ़ online fraud में गए पैसों के लिए है। कृपया cybercrime.gov.in देखिए, या किसी human operator से बात कीजिए।",
+        "en": "This assistant is only for money lost to online fraud. For other cybercrime, please visit cybercrime.gov.in.",
+        "hi": "यह असिस्टेंट सिर्फ़ ऑनलाइन धोखाधड़ी में गए पैसों के लिए है। दूसरे साइबर अपराध के लिए कृपया cybercrime.gov.in देखिए।",
+        "hinglish": "यह assistant सिर्फ़ online fraud में गए पैसों के लिए है। दूसरे cybercrime के लिए कृपया cybercrime.gov.in देखिए।",
     },
 }
 

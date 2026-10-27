@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --color-paper: #faf7f3;
+  --color-ink: #16131f;
+  --color-mute: #6f6a7a;
+  --color-line: #e9e3dc;
+  --color-coral: #f58a63;
+  --color-violet: #2F7BF6; /* the blue accent; name kept so existing classes still work */
+  --font-sans: "Inter", "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Telugu",
+    "Noto Sans Bengali", ui-sans-serif, system-ui, sans-serif;
+}
+
+body { background: #faf7f3; color: #16131f; font-family: var(--font-sans); }
+
+/* Blue-to-teal accent text. */
+.grad-text {
+  background-image: linear-gradient(90deg, #2f7bf6 0%, #19c3a5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  padding-block: 0.12em; /* stops tall Indic marks being clipped */
+}
+
+/* Four soft colour blobs in the page corners. */
+.glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38rem 30rem at -8% -6%,   rgba(111, 168, 255, .42), transparent 62%),
+    radial-gradient(34rem 28rem at -6% 104%,  rgba(255, 159, 85, .34),  transparent 62%),
+    radial-gradient(30rem 26rem at 104% 30%,  rgba(245, 194, 61, .30),  transparent 62%),
+    radial-gradient(34rem 28rem at 108% 108%, rgba(25, 195, 165, .34),  transparent 62%);
+}
+
+@layer components {
+  .card { @apply rounded-3xl border border-line bg-white/70 p-6 backdrop-blur sm:p-8; }
+  .btn-dark { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-6 text-sm font-semibold text-white transition hover:bg-black active:scale-[.98] disabled:opacity-50; }
+  .btn-light { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-line bg-white px-6 text-sm font-medium text-ink transition hover:bg-paper active:scale-[.98] disabled:opacity-50; }
+  .input { @apply w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none focus:border-violet; }
+}

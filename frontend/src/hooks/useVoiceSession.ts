@@ -17,22 +17,29 @@ const INTERRUPTION_RMS_THRESHOLD = 0.075;
 const INTERRUPTION_CONFIRM_MS = 180;
 
 // How long to wait after the caller stops talking before answering.
-const SILENCE_SENTENCE_END_MS = 700;
-const SILENCE_DEFAULT_MS = 1000;
+const SILENCE_SENTENCE_END_MS = 600;
+const SILENCE_DEFAULT_MS = 900;
 const SILENCE_INCOMPLETE_MS = 1900;
 const SILENCE_DIGITS_MS = 2000;
+const SILENCE_SHORT_ANSWER_MS = 450; // a bare yes / no / skip is already complete
+const SILENCE_AMOUNT_WAIT_MS = 2200; // "it was around ..." and the number is still coming
+const SILENCE_AMOUNT_DONE_MS = 1200; // the amount has digits or a word like lakh
+const SILENCE_PHONE_DONE_MS = 600; // four digits heard
+const SILENCE_REF_DONE_MS = 1200; // twelve or more digits heard
 
 // If the caller keeps talking within this window after we submitted,
 // it is the same answer: discard our reply and merge.
 const CONTINUATION_WINDOW_MS = 4500;
 
 const INCOMPLETE_END =
-  /(?:\b(?:and|but|so|because|then|also|um+|uh+|like|aur|lekin|toh|phir|matlab|ki|ya|woh|wo|mera|meri)\b|[,:;\-–…])\s*$/i;
-const DIGIT_FIELDS = new Set([
-  "transaction_reference",
-  "registered_phone_last4",
-  "amount_inr",
-]);
+  /(?:\b(?:and|but|so|because|then|also|um+|uh+|like|aur|lekin|toh|phir|matlab|ki|ya|woh|wo|mera|meri|around|about|roughly|approximately|nearly|almost|is|was|are|were|the|of|to|a|an|at|for|with|my|lagbhag|kareeb)\b|[,:;\-–…])\s*$/i;
+const INCOMPLETE_END_DEVANAGARI =
+  /(?:^|\s)(?:और|लेकिन|तो|फिर|मतलब|कि|या|वो|मेरा|मेरी|लगभग|करीब)\s*$/u;
+const SHORT_ANSWER =
+  /^[^\p{L}\p{M}\p{N}]*(?:yes|yeah|yep|no|nope|haan|han|haa|ji|nahi|nahin|skip|हाँ|हां|हा|जी|नहीं|नही|ना|छोड़िए|छोड़ो)[^\p{L}\p{M}\p{N}]*$/iu;
+const NUMBER_WORD =
+  /\d|\b(?:lakh|lakhs|lac|lacs|hazaar|hazar|thousand|crore|hundred|sau)\b|लाख|हज़ार|हजार|करोड़|सौ/iu;
+const DIGIT_FIELDS = new Set(["transaction_reference", "registered_phone_last4"]);
 
 let lastSpeechAt = 0;
 
@@ -46,10 +53,24 @@ function mark(label: string) {
 
 function silenceDelayFor(text: string, field: string | null): number {
   const t = text.trim();
-  if (INCOMPLETE_END.test(t)) return SILENCE_INCOMPLETE_MS;
+  if (INCOMPLETE_END.test(t) || INCOMPLETE_END_DEVANAGARI.test(t)) {
+    return SILENCE_INCOMPLETE_MS;
+  }
+
+  // A bare yes / no / skip is a complete answer.
+  if (SHORT_ANSWER.test(t)) return SILENCE_SHORT_ANSWER_MS;
+
+  if (field === "amount_inr") {
+    return NUMBER_WORD.test(t) ? SILENCE_AMOUNT_DONE_MS : SILENCE_AMOUNT_WAIT_MS;
+  }
+
   if (field && DIGIT_FIELDS.has(field) && /\d\s*$/.test(t)) {
+    const count = (t.match(/\d/g) ?? []).length;
+    if (field === "registered_phone_last4" && count >= 4) return SILENCE_PHONE_DONE_MS;
+    if (field === "transaction_reference" && count >= 12) return SILENCE_REF_DONE_MS;
     return SILENCE_DIGITS_MS;
   }
+
   if (/[.?!।]$/.test(t)) return SILENCE_SENTENCE_END_MS;
   return SILENCE_DEFAULT_MS;
 }
