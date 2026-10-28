@@ -112,7 +112,7 @@ export default function HandlerPage({ onExit }: { onExit: () => void }) {
   if (!authed) {
     return (
       <main className="mx-auto w-full max-w-md px-5 pb-12 pt-6">
-        <button onClick={onExit} className="btn-light !min-h-10 mb-6 !px-4">
+        <button onClick={onExit} className="btn-light !min-h-10 mb-6 !px-4 cursor-pointer">
           <ArrowLeft size={16} /> Back
         </button>
         <form
@@ -132,7 +132,7 @@ export default function HandlerPage({ onExit }: { onExit: () => void }) {
             onChange={(e) => setToken(e.target.value)}
           />
           {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-          <button type="submit" className="btn-dark mt-5 w-full">Open console</button>
+          <button type="submit" className="btn-dark mt-5 w-full cursor-pointer">Open console</button>
         </form>
       </main>
     );
@@ -153,7 +153,7 @@ export default function HandlerPage({ onExit }: { onExit: () => void }) {
             </span>
           </p>
         </div>
-        <button onClick={onExit} className="btn-light !min-h-10 !px-4">
+        <button onClick={onExit} className="btn-light !min-h-10 !px-4 cursor-pointer">
           <ArrowLeft size={16} /> Exit
         </button>
       </div>
@@ -169,7 +169,7 @@ export default function HandlerPage({ onExit }: { onExit: () => void }) {
               <li key={i.reference}>
                 <button
                   onClick={() => setSelected(i.reference)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                  className={`w-full rounded-2xl border p-4 text-left cursor-pointer transition ${
                     current?.reference === i.reference ? "border-violet bg-white" : "border-line bg-white/70 hover:bg-white"
                   }`}
                 >
@@ -207,7 +207,7 @@ export default function HandlerPage({ onExit }: { onExit: () => void }) {
               </dl>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <button onClick={() => void openPdf(current.reference)} className="btn-dark">
+                <button onClick={() => void openPdf(current.reference)} className="btn-dark cursor-pointer">
                   <FileText size={17} /> Open report PDF
                 </button>
                 <select

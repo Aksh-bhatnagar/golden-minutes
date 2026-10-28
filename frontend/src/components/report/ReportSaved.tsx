@@ -15,7 +15,7 @@ export default function ReportSaved({ reference, message, onFinish }: {
         <h1 className="mt-4 text-2xl font-medium tracking-tight">Report saved</h1>
 
         <p className="mt-6 break-all font-mono text-2xl font-semibold">{reference}</p>
-        <button className="btn-light !min-h-10 mt-3 !px-4"
+        <button className="btn-light !min-h-10 mt-3 !px-4 cursor-pointer"
                 onClick={async () => {
                   try { await navigator.clipboard.writeText(reference); setCopied(true); } catch { /* ignore */ }
                 }}>
@@ -28,7 +28,7 @@ export default function ReportSaved({ reference, message, onFinish }: {
         </p>
         {message && <p className="mt-3 text-xs text-mute">{message}</p>}
 
-        <button onClick={onFinish} className="btn-dark mt-6 w-full">Return to home</button>
+        <button onClick={onFinish} className="btn-dark mt-6 w-full cursor-pointer">Return to home</button>
       </div>
     </main>
   );

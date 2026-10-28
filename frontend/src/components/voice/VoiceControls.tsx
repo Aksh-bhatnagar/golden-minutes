@@ -13,7 +13,7 @@ export default function VoiceControls({ muted, disabled = false, onToggleMute, o
         disabled={disabled} 
         aria-pressed={muted}
         aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-        className={`flex h-14 w-16 shrink-0 items-center justify-center rounded-2xl border transition-all duration-300 disabled:opacity-40 ${
+        className={`flex h-14 w-16 shrink-0 items-center cursor-pointer justify-center rounded-2xl border transition-all duration-300 disabled:opacity-40 ${
           muted 
             ? "border-amber-200 bg-amber-50 text-amber-700 shadow-inner" 
             : "border-transparent bg-white text-ink shadow-sm hover:scale-105 hover:shadow-md"
@@ -24,7 +24,7 @@ export default function VoiceControls({ muted, disabled = false, onToggleMute, o
       
       <button 
         onClick={onEndCall}
-        className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#ff4b4b] px-6 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:bg-[#e63e3e] hover:shadow-md active:scale-[.98]"
+        className="flex h-14 flex-1 items-center justify-center cursor-pointer gap-2 rounded-2xl bg-[#ff4b4b] px-6 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:bg-[#e63e3e] hover:shadow-md active:scale-[.98]"
       >
         <PhoneOff size={18} /> End conversation
       </button>

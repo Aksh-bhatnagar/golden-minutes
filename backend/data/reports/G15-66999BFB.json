@@ -1,0 +1,46 @@
+{
+  "reference": "G15-66999BFB",
+  "created_at": "2026-10-27T11:00:25.971859+00:00",
+  "pdf_filename": "G15-66999BFB.pdf",
+  "report": {
+    "caller_name": "Rohan Mehta",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": 2000.0,
+    "transaction_reference": "583194726105",
+    "incident_date": "2026-10-26",
+    "incident_time": "16:12",
+    "registered_phone_last4": "8821",
+    "otp_or_pin_shared": "no",
+    "contacted_bank": "no",
+    "missing_fields": [],
+    "skipped_fields": [],
+    "field_attempts": {
+      "fraud_type": 1,
+      "_offtopic": 0,
+      "bank_or_payment_app": 1,
+      "transaction_reference": 1,
+      "incident_time": 1,
+      "registered_phone_last4": 1,
+      "otp_or_pin_shared": 1,
+      "contacted_bank": 1,
+      "caller_name": 1
+    },
+    "confirmed_by_user": false,
+    "consent_to_save": false
+  },
+  "status": "in_progress",
+  "display": {
+    "caller_name": "Rohan Mehta",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": "INR 2,000",
+    "transaction_reference": "583194726105",
+    "incident_date": "26 Oct 2026",
+    "incident_time": "4:12 PM",
+    "registered_phone_last4": "8821",
+    "otp_or_pin_shared": "No",
+    "contacted_bank": "No"
+  },
+  "status_updated_at": "2026-10-27T11:41:42.129706+00:00"
+}

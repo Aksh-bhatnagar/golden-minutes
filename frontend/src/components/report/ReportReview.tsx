@@ -90,7 +90,7 @@ export default function ReportReview({
         type="button"
         onClick={onBack}
         disabled={busy}
-        className="btn-light !min-h-10 mb-6 !px-4"
+        className="btn-light !min-h-10 mb-6 !px-4 cursor-pointer"
       >
         <ArrowLeft size={16} />
         Back to conversation
@@ -161,7 +161,7 @@ export default function ReportReview({
                     type="button"
                     aria-pressed={d[k] === o}
                     onClick={() => set(k, o)}
-                    className={`rounded-xl border px-3 py-2.5 text-sm capitalize transition ${
+                    className={`rounded-xl border px-3 py-2.5 text-sm capitalize cursor-pointer transition ${
                       d[k] === o
                         ? "border-violet bg-violet/10 text-violet"
                         : "border-line bg-white text-mute hover:bg-paper"
@@ -189,7 +189,7 @@ export default function ReportReview({
             type="button"
             disabled={busy}
             onClick={() => void run(onSaveChanges)}
-            className="btn-light"
+            className="btn-light cursor-pointer"
           >
             {busy ? (
               <LoaderCircle
@@ -205,7 +205,7 @@ export default function ReportReview({
           <button
             type="submit"
             disabled={busy}
-            className="btn-dark"
+            className="btn-dark cursor-pointer"
           >
             {busy ? (
               <LoaderCircle

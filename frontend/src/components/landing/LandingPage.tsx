@@ -43,7 +43,7 @@ export default function LandingPage({
         questions and prepares a clear summary for you.
       </p>
 
-      <button onClick={() => setPicking(true)} className="btn-dark mt-9">
+      <button onClick={() => setPicking(true)} className="btn-dark mt-9 cursor-pointer">
         <Mic size={17} /> Start a conversation <ArrowRight size={17} />
       </button>
       <p className="mt-4 text-xs text-mute">Available in {names}{more}</p>
@@ -59,7 +59,7 @@ export default function LandingPage({
         Golden Minutes is an AI prototype. It is not the police, a bank, or the official
         helpline, and it does not file complaints.
       </p>
-      <button onClick={onOpenHandler} className="mt-3 text-xs text-mute underline underline-offset-4 hover:text-ink">
+      <button onClick={onOpenHandler} className="mt-3 text-xs text-mute underline underline-offset-4 hover:text-ink cursor-pointer">
         Handler console (demo)
       </button>
 
@@ -84,7 +84,7 @@ export default function LandingPage({
                   अपनी भाषा चुनें · The call starts when you choose.
                 </p>
               </div>
-              <button onClick={() => setPicking(false)} aria-label="Close" className="rounded-full p-1.5 text-mute hover:bg-paper">
+              <button onClick={() => setPicking(false)} aria-label="Close" className="rounded-full p-1.5 text-mute hover:bg-paper cursor-pointer">
                 <X size={18} />
               </button>
             </div>
@@ -94,7 +94,7 @@ export default function LandingPage({
                 <button
                   key={l.code}
                   onClick={() => onStartCall(l.code)}
-                  className="rounded-2xl border border-line bg-white px-4 py-3 text-left transition hover:border-violet hover:bg-paper"
+                  className="rounded-2xl border border-line bg-white px-4 py-3 text-left transition hover:border-violet hover:bg-paper cursor-pointer"
                 >
                   <span className="block text-base font-medium">{l.native}</span>
                   <span className="mt-0.5 flex items-center gap-2 text-xs text-mute">

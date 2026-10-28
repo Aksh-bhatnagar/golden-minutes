@@ -221,7 +221,7 @@ const blocked = ["connecting", "ended", "error"].includes(status);
         <button onClick={handleEndCall} className="group flex items-center gap-2 rounded-full border border-line bg-white/50 px-4 py-2 text-sm font-medium text-mute transition hover:bg-white hover:text-ink">
           <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" /> Back
         </button>
-        <span className="rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs font-semibold tracking-wide text-mute shadow-sm">
+        <span className="rounded-full border border-line cursor-pointer bg-white/80 px-3 py-1.5 text-xs font-semibold tracking-wide text-mute shadow-sm">
           {languageLabel(language)}
         </span>
       </header>
@@ -298,7 +298,7 @@ const blocked = ["connecting", "ended", "error"].includes(status);
               <button
                 onClick={() => void handleBeginReview()}
                 disabled={busy || blocked || status === "thinking" || stage === "saving"}
-                className="btn-dark w-full !rounded-2xl"
+                className="btn-dark w-full !rounded-2xl cursor-pointer"
               >
                 <ClipboardCheck size={17} /> Review report
               </button>

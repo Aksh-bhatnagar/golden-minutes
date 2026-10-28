@@ -1,0 +1,42 @@
+{
+  "workflow_id": "g15draft_s0eMP1kC90eBOv5A9ojgJnj-",
+  "access_token_hash": "811d5e8d82e8492d4e18863c7bd6041a90daed4d5248008831859040bb7a319f",
+  "status": "reviewing",
+  "report": {
+    "caller_name": "Rohan Mehta",
+    "fraud_type": "Money debited from bank account without the caller's knowledge",
+    "bank_or_payment_app": "State Bank Of India (SBI)",
+    "amount_inr": 2000.0,
+    "transaction_reference": null,
+    "incident_date": "2026-10-26",
+    "incident_time": "16:12",
+    "registered_phone_last4": "8821",
+    "otp_or_pin_shared": "no",
+    "contacted_bank": "no",
+    "missing_fields": [],
+    "skipped_fields": [
+      "transaction_reference"
+    ],
+    "field_attempts": {
+      "fraud_type": 1,
+      "_offtopic": 0,
+      "bank_or_payment_app": 1,
+      "transaction_reference": 2,
+      "incident_time": 1,
+      "registered_phone_last4": 2,
+      "otp_or_pin_shared": 1,
+      "contacted_bank": 1,
+      "caller_name": 1
+    },
+    "confirmed_by_user": false,
+    "consent_to_save": false
+  },
+  "user_confirmed": false,
+  "consent_granted": false,
+  "reference": null,
+  "review_completed": true,
+  "created_at": "2026-10-27T10:47:05.214545+00:00",
+  "updated_at": "2026-10-27T10:47:05.250666+00:00",
+  "review_mode": "all",
+  "review_field": null
+}

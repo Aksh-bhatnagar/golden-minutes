@@ -8,7 +8,7 @@ export default function ReportConsent({ busy = false, error = null, onBack, onCo
 }) {
   return (
     <main className="mx-auto w-full max-w-xl px-5 pb-12 pt-2">
-      <button onClick={onBack} disabled={busy} className="btn-light !min-h-10 mb-6 !px-4">
+      <button onClick={onBack} disabled={busy} className="btn-light !min-h-10 mb-6 !px-4 cursor-pointer">
         <ArrowLeft size={16} /> Back to review
       </button>
 
@@ -25,10 +25,10 @@ export default function ReportConsent({ busy = false, error = null, onBack, onCo
         )}
 
         <div className="mt-6 grid gap-3">
-          <button disabled={busy} onClick={() => void onConsent(true)} className="btn-dark">
+          <button disabled={busy} onClick={() => void onConsent(true)} className="btn-dark cursor-pointer">
             {busy && <LoaderCircle size={17} className="animate-spin" />} Yes, save my report
           </button>
-          <button disabled={busy} onClick={() => void onConsent(false)} className="btn-light">
+          <button disabled={busy} onClick={() => void onConsent(false)} className="btn-light cursor-pointer">
             No, don't save
           </button>
         </div>
