@@ -12,6 +12,9 @@ Victims of online financial fraud in India call the **1930 cyber-crime helpline*
 
 Golden Minutes **replaces the human intake step**. The victim talks to a voice assistant in their own language (Hinglish by default). The assistant asks short, focused questions, extracts the key incident details, lets the user review and confirm them, then **generates a PDF report** for the person who handles the case. Investigation stays with humans; only the repetitive intake is automated.
 
+## Demo
+https://drive.google.com/file/d/1wYtsKmqTdajLb-e27OS3GDbLjcHGBVh0/view?usp=drive_link
+
 ## Key Features
 
 - **Hinglish-first voice conversation** with Hindi and English support
